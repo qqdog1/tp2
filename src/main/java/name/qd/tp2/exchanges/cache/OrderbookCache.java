@@ -6,6 +6,7 @@ import java.util.Map;
 import name.qd.tp2.exchanges.vo.Orderbook;
 
 public class OrderbookCache {
+	// symbol, orderbook
 	private Map<String, Orderbook> map = new HashMap<>();
 	
 	public OrderbookCache() {
