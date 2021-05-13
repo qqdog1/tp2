@@ -12,6 +12,7 @@ public class OrderbookCache {
 	public OrderbookCache() {
 	}
 	
+	// 一次更新整個 要有delta的
 	public void updateOrderbook(String symbol, Orderbook orderbook) {
 		map.put(symbol, orderbook);
 	}
