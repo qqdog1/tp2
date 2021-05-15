@@ -23,7 +23,12 @@ public abstract class AbstractExchange implements Exchange {
 		mapKeySecret.put(name, new ApiKeySecret(apiKey, secret));
 	}
 	
-	public void updateOrderbook(String symbol, Orderbook orderbook) {
+	@Override
+	public Orderbook getOrderbook(String symbol) {
+		return orderbookCache.getOrderbook(symbol);
+	}
+	
+	protected void updateOrderbook(String symbol, Orderbook orderbook) {
 		orderbookCache.updateOrderbook(symbol, orderbook);
 	}
 	
