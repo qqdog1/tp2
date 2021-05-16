@@ -1,0 +1,20 @@
+{
+  "generalSettings": [
+    {
+      "exchange": "BTSE",
+      "symbol": [
+        "ETHPFC"
+      ],
+      "user": [
+        {
+          "name": "shawn",
+          "apiKey": "asfsdlafj;asdf",
+          "secret": "asfsadfsad"
+        }
+      ]
+    }
+  ],
+  "customizeSettings": {
+    "abc": "QQ"
+  }
+}
