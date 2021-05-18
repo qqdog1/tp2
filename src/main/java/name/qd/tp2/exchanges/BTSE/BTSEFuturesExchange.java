@@ -1,8 +1,14 @@
 package name.qd.tp2.exchanges.BTSE;
 
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import org.apache.commons.codec.binary.Hex;
+import org.apache.commons.codec.digest.HmacAlgorithms;
+import org.apache.commons.codec.digest.HmacUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -14,22 +20,44 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import name.qd.tp2.exchanges.AbstractExchange;
 import name.qd.tp2.exchanges.ChannelMessageHandler;
 import name.qd.tp2.exchanges.Exchange;
+import name.qd.tp2.exchanges.vo.ApiKeySecret;
 import name.qd.tp2.exchanges.vo.Orderbook;
 import name.qd.tp2.utils.JsonUtils;
+import okhttp3.HttpUrl;
+import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.WebSocket;
 import okhttp3.WebSocketListener;
 
-public class BTSEExchange extends AbstractExchange {
-	private Logger log = LoggerFactory.getLogger(BTSEExchange.class);
-	private WebSocket webSocket;
+public class BTSEFuturesExchange extends AbstractExchange {
+	private static String REST_URL = "https://api.btse.com/futures/";
+	private static String WS_URL = "wss://ws.btse.com/ws/futures";
+	
+	private Logger log = LoggerFactory.getLogger(BTSEFuturesExchange.class);
 	private final ExecutorService executor = Executors.newSingleThreadExecutor();
 	private ChannelMessageHandler channelMessageHandler = new BTSEChannelMessageHandler();
 	private boolean isWebSocketConnect = false;
 	
-	public BTSEExchange() {
+	// request builder
+	private Request.Builder requestBuilderBalance;
+	
+	public BTSEFuturesExchange() {
+		super(REST_URL, WS_URL);
+		
 		executor.execute(channelMessageHandler);
-		if(webSocket == null) initWebSocket();
+		if(webSocket == null) initWebSocket(new BTSEWebSocketListener());
+		
+		initRequestBuilder();
+	}
+	
+	private void initRequestBuilder() {
+		requestBuilderBalance = createRequestBuilder("api/v2.1/user/wallet");
+	}
+	
+	private Request.Builder createRequestBuilder(String path) {
+		HttpUrl.Builder urlBuilder = httpUrl.newBuilder();
+		urlBuilder.addPathSegments(path);
+		return new Request.Builder().url(urlBuilder.build().url().toString());
 	}
 	
 	@Override
@@ -65,14 +93,38 @@ public class BTSEExchange extends AbstractExchange {
 	public boolean cancelOrder(String userName, String strategyName, String orderId) {
 		return false;
 	}
+	
+	@Override
+	public Map<String, Double> getBalance(String userName) {
+		ApiKeySecret apiKeySecret = getUserApiKeySecret(userName);
+		String nonce = String.valueOf(System.currentTimeMillis());
+		String sign = null;
+		try {
+			sign = getSign(userName, "/api/v2.1/user/wallet", nonce, "");
+		} catch (UnsupportedEncodingException e) {
+			log.error("get sign failed.", e);
+		}
+		
+		requestBuilderBalance.addHeader("btse-nonce", nonce);
+		requestBuilderBalance.addHeader("btse-api", apiKeySecret.getApiKey());
+		requestBuilderBalance.addHeader("btse-sign", sign);
+		Request request = requestBuilderBalance.build();
+		String responseString = null;
+		try {
+			responseString = sendGetRequest(request);
+			
+			System.out.println(responseString);
+		} catch (IOException e) {
+			log.error("query balance failed.", e);
+		}
+		
+		return null;
+	}
 
 	@Override
 	public String getBalance(String userName, String symbol) {
+		
 		return null;
-	}
-	
-	private void initWebSocket() {
-		webSocket = createWebSocket("wss://ws.btse.com/ws/futures", new BTSEWebSocketListener());
 	}
 	
 	private void processOrderbook(JsonNode node) {
@@ -87,6 +139,15 @@ public class BTSEExchange extends AbstractExchange {
 			orderbook.addAsk(sell.get("price").asDouble(), sell.get("size").asDouble());
 		}
 		updateOrderbook(symbol, orderbook);
+	}
+	
+	private String getSign(String userName, String path, String nonce, String data) throws UnsupportedEncodingException {
+		String raw = path + nonce + data;
+		
+		ApiKeySecret apiKeySecret = getUserApiKeySecret(userName);
+		byte[] hmac_key = apiKeySecret.getSecret().getBytes("UTF-8");
+		byte[] hash = HmacUtils.getInitializedMac(HmacAlgorithms.HMAC_SHA_384, hmac_key).doFinal(raw.getBytes());
+		return Hex.encodeHexString(hash);
 	}
 	
 	private class BTSEWebSocketListener extends WebSocketListener {
@@ -132,7 +193,7 @@ public class BTSEExchange extends AbstractExchange {
 	}
 	
 	public static void main(String[] s) {
-		Exchange exchange = new BTSEExchange();
+		Exchange exchange = new BTSEFuturesExchange();
 		exchange.subscribe("ETHPFC");
 		try {
 			Thread.sleep(3000);

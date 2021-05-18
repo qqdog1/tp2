@@ -21,6 +21,7 @@ public abstract class AbstractStrategy implements Strategy {
 		this.strategyConfig = strategyConfig;
 		
 		initAllExchange();
+		setUserInfo();
 		
 		while(true) {
 			if(isAllExchangeReady()) {
@@ -41,14 +42,22 @@ public abstract class AbstractStrategy implements Strategy {
 		executor.execute(new StrategyCycle());
 	}
 	
-	public abstract void processBook();
-	public abstract void processFill();
 	public abstract void strategyAction();
 	
 	private void initAllExchange() {
 		Set<String> exchanges = strategyConfig.getAllExchange();
 		for(String exchange : exchanges) {
 			exchangeManager.initExchange(exchange);
+		}
+	}
+	
+	private void setUserInfo() {
+		Set<String> exchanges = strategyConfig.getAllExchange();
+		for(String exchange : exchanges) {
+			Set<String> users = strategyConfig.getAllUser(exchange);
+			for(String userName : users) {
+				exchangeManager.addUserApiKeySecret(exchange, userName, strategyConfig.getApiKeySecret(exchange, userName));
+			}
 		}
 	}
 	
@@ -79,8 +88,6 @@ public abstract class AbstractStrategy implements Strategy {
 		@Override
 		public void run() {
 			while (!Thread.currentThread().isInterrupted()) {
-				processBook();
-				processFill();
 				strategyAction();
 			}
 		}

@@ -6,7 +6,8 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import name.qd.tp2.exchanges.BTSE.BTSEExchange;
+import name.qd.tp2.exchanges.BTSE.BTSEFuturesExchange;
+import name.qd.tp2.exchanges.vo.ApiKeySecret;
 import name.qd.tp2.exchanges.vo.Orderbook;
 
 public class ExchangeManager {
@@ -28,7 +29,7 @@ public class ExchangeManager {
 	public void initExchange(String exchange) {
 		if(!mapExchange.containsKey(exchange)) {
 			if(BTSE_EXCHANGE_NAME.equals(exchange)) {
-				mapExchange.put(BTSE_EXCHANGE_NAME, new BTSEExchange());
+				mapExchange.put(BTSE_EXCHANGE_NAME, new BTSEFuturesExchange());
 			} else {
 				log.error("exchange not implement yet, {}", exchange);
 			}
@@ -37,6 +38,10 @@ public class ExchangeManager {
 	
 	public boolean isExchangeReady(String exchange) {
 		return mapExchange.get(exchange).isReady();
+	}
+	
+	public void addUserApiKeySecret(String exchange, String userName, ApiKeySecret apiKeySecret) {
+		mapExchange.get(exchange).addUser(userName, apiKeySecret);
 	}
 	
 	public void subscribe(String exchange, String symbol) {
@@ -53,6 +58,10 @@ public class ExchangeManager {
 		} catch (NullPointerException e) {
 			log.error("exchange not exist, {}", exchange);
 		}
+	}
+	
+	public Map<String, Double> getBalance(String exchange, String userName) {
+		return mapExchange.get(exchange).getBalance(userName);
 	}
 	
 	public Orderbook getOrderbook(String exchange, String symbol) {

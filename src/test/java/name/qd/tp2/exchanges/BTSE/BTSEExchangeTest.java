@@ -3,10 +3,10 @@ package name.qd.tp2.exchanges.BTSE;
 import org.junit.jupiter.api.BeforeEach;
 
 public class BTSEExchangeTest {
-	private BTSEExchange exchange;
+	private BTSEFuturesExchange exchange;
 	
 	@BeforeEach
 	void init() {
-		exchange = new BTSEExchange();
+		exchange = new BTSEFuturesExchange();
 	}
 }
