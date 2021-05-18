@@ -19,8 +19,8 @@ public abstract class AbstractExchange implements Exchange {
 	private OrderbookCache orderbookCache = new OrderbookCache();
 	private FillCache fillCache = new FillCache();
 	
-	public void addAccount(String name, String apiKey, String secret) {
-		mapKeySecret.put(name, new ApiKeySecret(apiKey, secret));
+	public void addUser(String userName, String apiKey, String secret) {
+		mapKeySecret.put(userName, new ApiKeySecret(apiKey, secret));
 	}
 	
 	@Override

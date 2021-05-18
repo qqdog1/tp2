@@ -34,12 +34,12 @@ public abstract class AbstractStrategyConfig implements StrategyConfig {
 		return mapConfigs.get(key);
 	}
 	
-	public void addApiKeySecret(String exchange, String user, String apiKey, String secret) {
+	public void addApiKeySecret(String exchange, String userName, String apiKey, String secret) {
 		if(!mapApiKeys.containsKey(exchange)) {
 			mapApiKeys.put(exchange, new HashMap<>());
 		}
 		ApiKeySecret apiKeySecret = new ApiKeySecret(apiKey, secret);
-		mapApiKeys.get(exchange).put(user, apiKeySecret);
+		mapApiKeys.get(exchange).put(userName, apiKeySecret);
 	}
 	
 	public Set<String> getAllUser(String exchange) {
@@ -49,8 +49,8 @@ public abstract class AbstractStrategyConfig implements StrategyConfig {
 		return Collections.emptySet();
 	}
 	
-	public ApiKeySecret getApiKeySecret(String exchange, String user) {
-		return mapApiKeys.get(exchange).get(user);
+	public ApiKeySecret getApiKeySecret(String exchange, String userName) {
+		return mapApiKeys.get(exchange).get(userName);
 	}
 	
 	public void addCustomizeSettings(String key, String value) {

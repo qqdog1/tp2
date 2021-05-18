@@ -1,15 +1,15 @@
 package name.qd.tp2.exchanges.vo;
 
 public class Fill {
-	private String accountName;
+	private String userName;
 	private String symbol;
 	private String price;
 	private String qty;
-	public String getAccountName() {
-		return accountName;
+	public String getUserName() {
+		return userName;
 	}
-	public void setAccountName(String accountName) {
-		this.accountName = accountName;
+	public void setUserName(String userName) {
+		this.userName = userName;
 	}
 	public String getSymbol() {
 		return symbol;

@@ -18,13 +18,13 @@ public class FillCacheTest {
 	@Test
 	public void pushAndPop() {
 		Fill fillA = new Fill();
-		fillA.setAccountName("AA");
+		fillA.setUserName("AA");
 		fillA.setPrice("123");
 		fillA.setQty("0.02");
 		fillA.setSymbol("BTC");
 		
 		Fill fillB = new Fill();
-		fillB.setAccountName("BB");
+		fillB.setUserName("BB");
 		fillB.setPrice("321");
 		fillB.setQty("0.111");
 		fillB.setSymbol("ETH");
@@ -35,13 +35,13 @@ public class FillCacheTest {
 		fillCache.offerFill("TEST", fillB);
 		// pop should get A
 		Fill fill = fillCache.popFill("TEST");
-		assertTrue(fill.getAccountName().equals(fillA.getAccountName()));
+		assertTrue(fill.getUserName().equals(fillA.getUserName()));
 		assertTrue(fill.getPrice().equals(fillA.getPrice()));
 		assertTrue(fill.getQty().equals(fillA.getQty()));
 		assertTrue(fill.getSymbol().equals(fillA.getSymbol()));
 		// pop should get B
 		fill = fillCache.popFill("TEST");
-		assertTrue(fill.getAccountName().equals(fillB.getAccountName()));
+		assertTrue(fill.getUserName().equals(fillB.getUserName()));
 		assertTrue(fill.getPrice().equals(fillB.getPrice()));
 		assertTrue(fill.getQty().equals(fillB.getQty()));
 		assertTrue(fill.getSymbol().equals(fillB.getSymbol()));

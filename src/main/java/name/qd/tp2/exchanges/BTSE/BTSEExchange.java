@@ -67,7 +67,7 @@ public class BTSEExchange extends AbstractExchange {
 	}
 
 	@Override
-	public String getBalance(String name, String symbol) {
+	public String getBalance(String userName, String symbol) {
 		return null;
 	}
 	
@@ -76,7 +76,6 @@ public class BTSEExchange extends AbstractExchange {
 	}
 	
 	private void processOrderbook(JsonNode node) {
-		// TODO 丟到Queue看有沒有堆起來
 		String symbol = node.get("data").get("symbol").asText();
 		Orderbook orderbook = new Orderbook();
 		JsonNode buyNode = node.get("data").get("buyQuote");
