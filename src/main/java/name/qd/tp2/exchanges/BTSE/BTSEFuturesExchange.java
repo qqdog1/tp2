@@ -50,6 +50,41 @@ public class BTSEFuturesExchange extends AbstractExchange {
 		if(webSocket == null) initWebSocket(new BTSEWebSocketListener());
 	}
 	
+	public void addUser(String userName, ApiKeySecret apiKeySecret) {
+		// TODO websocket 這樣一個user要一個connection
+		super.addUser(userName, apiKeySecret);
+		websocketLogin(userName);
+		subscribeFill(userName);
+	}
+	
+	private void websocketLogin(String userName) {
+		ApiKeySecret apiKeySecret = getApiKeySecret(userName);
+		String nonce = String.valueOf(System.currentTimeMillis());
+		String sign = null;
+		try {
+			sign = getSign(userName, "/futures/api/topic", nonce, "");
+		} catch (UnsupportedEncodingException e) {
+			log.error("get sign failed.", e);
+		}
+		
+		ObjectNode objectNode = JsonUtils.objectMapper.createObjectNode();
+		objectNode.put("op", "login");
+		ArrayNode arrayNode = objectNode.putArray("args");
+		arrayNode.add(apiKeySecret.getApiKey());
+		arrayNode.add(nonce);
+		arrayNode.add(sign);
+		
+		webSocket.send(objectNode.toString());
+	}
+	
+	private void subscribeFill(String userName) {
+		ObjectNode objectNode = JsonUtils.objectMapper.createObjectNode();
+		objectNode.put("op", "subscribe");
+		ArrayNode arrayNode = objectNode.putArray("args");
+		arrayNode.add("notificationApiV2");
+		webSocket.send(objectNode.toString());
+	}
+	
 	private Request.Builder createRequestBuilder(String path) {
 		HttpUrl.Builder urlBuilder = httpUrl.newBuilder();
 		urlBuilder.addPathSegments(path);
@@ -102,7 +137,7 @@ public class BTSEFuturesExchange extends AbstractExchange {
 	}
 	
 	private String sendOrder(String userName, ObjectNode objectNode) {
-		ApiKeySecret apiKeySecret = getUserApiKeySecret(userName);
+		ApiKeySecret apiKeySecret = getApiKeySecret(userName);
 		String nonce = String.valueOf(System.currentTimeMillis());
 		String sign = null;
 		try {
@@ -141,7 +176,7 @@ public class BTSEFuturesExchange extends AbstractExchange {
 
 	@Override
 	public boolean cancelOrder(String userName, String strategyName, String symbol, String orderId) {
-		ApiKeySecret apiKeySecret = getUserApiKeySecret(userName);
+		ApiKeySecret apiKeySecret = getApiKeySecret(userName);
 		String nonce = String.valueOf(System.currentTimeMillis());
 		
 		HttpUrl.Builder urlBuilder = httpUrl.newBuilder();
@@ -184,7 +219,7 @@ public class BTSEFuturesExchange extends AbstractExchange {
 	
 	@Override
 	public Map<String, Double> getBalance(String userName) {
-		ApiKeySecret apiKeySecret = getUserApiKeySecret(userName);
+		ApiKeySecret apiKeySecret = getApiKeySecret(userName);
 		String nonce = String.valueOf(System.currentTimeMillis());
 		String sign = null;
 		try {
@@ -230,10 +265,14 @@ public class BTSEFuturesExchange extends AbstractExchange {
 		updateOrderbook(symbol, orderbook);
 	}
 	
+	private void processFill() {
+		
+	}
+	
 	private String getSign(String userName, String path, String nonce, String data) throws UnsupportedEncodingException {
 		String raw = path + nonce + data;
 		
-		ApiKeySecret apiKeySecret = getUserApiKeySecret(userName);
+		ApiKeySecret apiKeySecret = getApiKeySecret(userName);
 		byte[] hmac_key = apiKeySecret.getSecret().getBytes("UTF-8");
 		byte[] hash = HmacUtils.getInitializedMac(HmacAlgorithms.HMAC_SHA_384, hmac_key).doFinal(raw.getBytes());
 		return Hex.encodeHexString(hash);
@@ -274,6 +313,8 @@ public class BTSEFuturesExchange extends AbstractExchange {
 					if("orderBook".equals(messageType)) {
 						processOrderbook(node);
 					}
+				} else {
+					log.error("BTSE websocket received unknown message: {}", text);
 				}
 			} catch (JsonProcessingException e) {
 				log.error("Parse websocket message to Json format failed. {}", text, e);

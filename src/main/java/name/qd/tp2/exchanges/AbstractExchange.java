@@ -2,12 +2,14 @@ package name.qd.tp2.exchanges;
 
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import name.qd.tp2.exchanges.cache.FillCache;
 import name.qd.tp2.exchanges.cache.OrderbookCache;
 import name.qd.tp2.exchanges.vo.ApiKeySecret;
+import name.qd.tp2.exchanges.vo.Fill;
 import name.qd.tp2.exchanges.vo.Orderbook;
 import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
@@ -46,13 +48,18 @@ public abstract class AbstractExchange implements Exchange {
 		mapKeySecret.put(userName, apiKeySecret);
 	}
 	
-	public ApiKeySecret getUserApiKeySecret(String userName) {
+	public ApiKeySecret getApiKeySecret(String userName) {
 		return mapKeySecret.get(userName);
 	}
 	
 	@Override
 	public Orderbook getOrderbook(String symbol) {
 		return orderbookCache.getOrderbook(symbol);
+	}
+	
+	@Override
+	public List<Fill> getFill(String strategyName, String userName) {
+		return null;
 	}
 	
 	protected void updateOrderbook(String symbol, Orderbook orderbook) {

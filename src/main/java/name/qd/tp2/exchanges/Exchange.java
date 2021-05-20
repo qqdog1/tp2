@@ -1,9 +1,11 @@
 package name.qd.tp2.exchanges;
 
+import java.util.List;
 import java.util.Map;
 
 import name.qd.tp2.constants.BuySell;
 import name.qd.tp2.exchanges.vo.ApiKeySecret;
+import name.qd.tp2.exchanges.vo.Fill;
 import name.qd.tp2.exchanges.vo.Orderbook;
 
 public interface Exchange {
@@ -14,6 +16,7 @@ public interface Exchange {
 	public void subscribe(String symbol);
 	public void unsubscribe(String symbol);
 	public Orderbook getOrderbook(String symbol);
+	public List<Fill> getFill(String strategyName, String userName);
 	
 	public String sendLimitOrder(String userName, String strategyName, String symbol, BuySell buySell, double price, double qty);
 	public String sendMarketOrder(String userName, String strategyName, String symbol, BuySell buySell, double qty);

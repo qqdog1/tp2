@@ -1,6 +1,7 @@
 package name.qd.tp2.exchanges;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.slf4j.Logger;
@@ -9,6 +10,7 @@ import org.slf4j.LoggerFactory;
 import name.qd.tp2.constants.BuySell;
 import name.qd.tp2.exchanges.BTSE.BTSEFuturesExchange;
 import name.qd.tp2.exchanges.vo.ApiKeySecret;
+import name.qd.tp2.exchanges.vo.Fill;
 import name.qd.tp2.exchanges.vo.Orderbook;
 
 public class ExchangeManager {
@@ -73,6 +75,10 @@ public class ExchangeManager {
 		} catch (CloneNotSupportedException e) {
 			log.error("error occur when cloning orderbook, exchange:{}, symbol:{}", exchange, symbol, e);
 		}
+		return null;
+	}
+	
+	public List<Fill> getFill(String strategyName, String exchange, String userName) {
 		return null;
 	}
 	

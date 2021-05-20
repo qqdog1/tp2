@@ -21,7 +21,6 @@ public abstract class AbstractStrategy implements Strategy {
 		this.strategyConfig = strategyConfig;
 		
 		initAllExchange();
-		setUserInfo();
 		
 		while(true) {
 			if(isAllExchangeReady()) {
@@ -35,6 +34,7 @@ public abstract class AbstractStrategy implements Strategy {
 			}
 		}
 		
+		setUserInfo();
 		subscribeAllSymbol();
 	}
 	
