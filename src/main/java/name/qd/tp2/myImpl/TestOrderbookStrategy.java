@@ -1,5 +1,6 @@
 package name.qd.tp2.myImpl;
 
+import name.qd.tp2.constants.BuySell;
 import name.qd.tp2.exchanges.ExchangeManager;
 import name.qd.tp2.exchanges.vo.Orderbook;
 import name.qd.tp2.myImpl.config.TestOrderbookConfig;
@@ -17,7 +18,20 @@ public class TestOrderbookStrategy extends AbstractStrategy {
 	public void strategyAction() {
 		processBook();
 		
-		exchangeManager.getBalance(ExchangeManager.BTSE_EXCHANGE_NAME, "shawn");
+//		exchangeManager.getBalance(ExchangeManager.BTSE_EXCHANGE_NAME, "shawn");
+		String orderId = exchangeManager.sendOrder("Test01", ExchangeManager.BTSE_EXCHANGE_NAME, "shawn", 
+				"ETHPFC", BuySell.BUY, 1, 1);
+		
+		System.out.println(orderId);
+		
+		try {
+			Thread.sleep(1000);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+		
+		boolean isCancelled = exchangeManager.cancelOrder("Test01", ExchangeManager.BTSE_EXCHANGE_NAME, "shawn", "ETHPFC", orderId);
+		System.out.println(isCancelled);
 	}
 
 	private void processBook() {

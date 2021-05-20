@@ -64,7 +64,7 @@ public abstract class AbstractExchange implements Exchange {
 		return okHttpClient.newWebSocket(request, listener);
 	}
 	
-	protected String sendGetRequest(Request request) throws IOException {
+	protected String sendRequest(Request request) throws IOException {
 		Response response = okHttpClient.newCall(request).execute();
 		return response.body().string();
 	}

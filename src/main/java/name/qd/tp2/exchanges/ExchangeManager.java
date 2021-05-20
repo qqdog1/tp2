@@ -6,6 +6,7 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import name.qd.tp2.constants.BuySell;
 import name.qd.tp2.exchanges.BTSE.BTSEFuturesExchange;
 import name.qd.tp2.exchanges.vo.ApiKeySecret;
 import name.qd.tp2.exchanges.vo.Orderbook;
@@ -75,8 +76,15 @@ public class ExchangeManager {
 		return null;
 	}
 	
-	public String sendOrder(String exchange, String userName, String symbol, double price, double qty) {
-		// order id
-		return null;
+	public String sendOrder(String strategyName, String exchange, String userName, String symbol, BuySell buySell, double price, double qty) {
+		if(price == 0) {
+			return mapExchange.get(exchange).sendMarketOrder(userName, strategyName, symbol, buySell, qty);
+		} else {
+			return mapExchange.get(exchange).sendLimitOrder(userName, strategyName, symbol, buySell, price, qty);
+		}
+	}
+	
+	public boolean cancelOrder(String strategyName, String exchange, String userName, String symbol, String orderId) {
+		return mapExchange.get(exchange).cancelOrder(userName, strategyName, symbol, orderId);
 	}
 }

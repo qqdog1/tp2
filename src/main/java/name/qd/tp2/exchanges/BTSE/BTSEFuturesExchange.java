@@ -17,6 +17,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
+import name.qd.tp2.constants.BuySell;
 import name.qd.tp2.exchanges.AbstractExchange;
 import name.qd.tp2.exchanges.ChannelMessageHandler;
 import name.qd.tp2.exchanges.Exchange;
@@ -24,7 +25,9 @@ import name.qd.tp2.exchanges.vo.ApiKeySecret;
 import name.qd.tp2.exchanges.vo.Orderbook;
 import name.qd.tp2.utils.JsonUtils;
 import okhttp3.HttpUrl;
+import okhttp3.MediaType;
 import okhttp3.Request;
+import okhttp3.RequestBody;
 import okhttp3.Response;
 import okhttp3.WebSocket;
 import okhttp3.WebSocketListener;
@@ -38,20 +41,13 @@ public class BTSEFuturesExchange extends AbstractExchange {
 	private ChannelMessageHandler channelMessageHandler = new BTSEChannelMessageHandler();
 	private boolean isWebSocketConnect = false;
 	
-	// request builder
-	private Request.Builder requestBuilderBalance;
+	private MediaType MEDIA_TYPE_JSON = MediaType.parse("application/json; charset=utf-8");
 	
 	public BTSEFuturesExchange() {
 		super(REST_URL, WS_URL);
 		
 		executor.execute(channelMessageHandler);
 		if(webSocket == null) initWebSocket(new BTSEWebSocketListener());
-		
-		initRequestBuilder();
-	}
-	
-	private void initRequestBuilder() {
-		requestBuilderBalance = createRequestBuilder("api/v2.1/user/wallet");
 	}
 	
 	private Request.Builder createRequestBuilder(String path) {
@@ -85,13 +81,105 @@ public class BTSEFuturesExchange extends AbstractExchange {
 	}
 
 	@Override
-	public String sendOrder(String userName, String strategyName, String symbol, double price, double qty) {
-		return null;
+	public String sendLimitOrder(String userName, String strategyName, String symbol, BuySell buySell, double price, double qty) {
+		ObjectNode objectNode = JsonUtils.objectMapper.createObjectNode();
+		objectNode.put("price", price);
+		objectNode.put("side", buySell.name());
+		objectNode.put("size", qty);
+		objectNode.put("symbol", symbol);
+		objectNode.put("type", "LIMIT");
+		return sendOrder(userName, objectNode);
+	}
+	
+	@Override
+	public String sendMarketOrder(String userName, String strategyName, String symbol, BuySell buySell, double qty) {
+		ObjectNode objectNode = JsonUtils.objectMapper.createObjectNode();
+		objectNode.put("side", buySell.name());
+		objectNode.put("size", qty);
+		objectNode.put("symbol", symbol);
+		objectNode.put("type", "MARKET");
+		return sendOrder(userName, objectNode);
+	}
+	
+	private String sendOrder(String userName, ObjectNode objectNode) {
+		ApiKeySecret apiKeySecret = getUserApiKeySecret(userName);
+		String nonce = String.valueOf(System.currentTimeMillis());
+		String sign = null;
+		try {
+			sign = getSign(userName, "/api/v2.1/order", nonce, objectNode.toString());
+		} catch (UnsupportedEncodingException e) {
+			log.error("get sign failed when sending order.", e);
+		}
+		Request.Builder requestBuilderOrder = createRequestBuilder("api/v2.1/order");
+		requestBuilderOrder.addHeader("btse-nonce", nonce);
+		requestBuilderOrder.addHeader("btse-api", apiKeySecret.getApiKey());
+		requestBuilderOrder.addHeader("btse-sign", sign);
+		
+		RequestBody body = RequestBody.create(objectNode.toString(), MEDIA_TYPE_JSON);
+		Request request = requestBuilderOrder.post(body).build();
+		
+		String responseString = null;
+		String orderId = null;
+		try {
+			responseString = sendRequest(request);
+			
+			JsonNode node = JsonUtils.objectMapper.readTree(responseString);
+			for(JsonNode ackNode : node) {
+				int orderStatus = ackNode.get("status").asInt();
+				if(orderStatus == 2) {
+					orderId = ackNode.get("orderID").asText();
+				} else {
+					log.error("Order failed: {}", responseString);
+				}
+			}
+		} catch (IOException e) {
+			log.error("send order failed. {}", responseString, e);
+		}
+		
+		return orderId;
 	}
 
 	@Override
-	public boolean cancelOrder(String userName, String strategyName, String orderId) {
-		return false;
+	public boolean cancelOrder(String userName, String strategyName, String symbol, String orderId) {
+		ApiKeySecret apiKeySecret = getUserApiKeySecret(userName);
+		String nonce = String.valueOf(System.currentTimeMillis());
+		
+		HttpUrl.Builder urlBuilder = httpUrl.newBuilder();
+		urlBuilder.addPathSegments("api/v2.1/order");
+		urlBuilder.addEncodedQueryParameter("orderID", orderId);
+		urlBuilder.addEncodedQueryParameter("symbol", symbol);
+		
+		Request.Builder requestBuilder = new Request.Builder().url(urlBuilder.build().url().toString());
+		String sign = null;
+		try {
+			sign = getSign(userName, "/api/v2.1/order", nonce, "");
+		} catch (UnsupportedEncodingException e) {
+			log.error("get sign failed when sending order.", e);
+		}
+		requestBuilder.addHeader("btse-nonce", nonce);
+		requestBuilder.addHeader("btse-api", apiKeySecret.getApiKey());
+		requestBuilder.addHeader("btse-sign", sign);
+		Request request = requestBuilder.delete().build();
+		
+		String responseString = null;
+		boolean isCancelled = false;
+		try {
+			responseString = sendRequest(request);
+			
+			JsonNode node = JsonUtils.objectMapper.readTree(responseString);
+			for(JsonNode ackNode : node) {
+				int orderStatus = ackNode.get("status").asInt();
+				if(orderStatus == 6) {
+					isCancelled = true;
+				} else {
+					log.error("Order failed: {}", responseString);
+				}
+			}
+		} catch (IOException e) {
+			log.error("send order failed.", e);
+		}
+		
+		return isCancelled;
 	}
 	
 	@Override
@@ -102,16 +190,17 @@ public class BTSEFuturesExchange extends AbstractExchange {
 		try {
 			sign = getSign(userName, "/api/v2.1/user/wallet", nonce, "");
 		} catch (UnsupportedEncodingException e) {
-			log.error("get sign failed.", e);
+			log.error("get sign failed when query balance.", e);
 		}
 		
+		Request.Builder requestBuilderBalance = createRequestBuilder("api/v2.1/user/wallet");
 		requestBuilderBalance.addHeader("btse-nonce", nonce);
 		requestBuilderBalance.addHeader("btse-api", apiKeySecret.getApiKey());
 		requestBuilderBalance.addHeader("btse-sign", sign);
 		Request request = requestBuilderBalance.build();
 		String responseString = null;
 		try {
-			responseString = sendGetRequest(request);
+			responseString = sendRequest(request);
 			
 			System.out.println(responseString);
 		} catch (IOException e) {
