@@ -57,9 +57,13 @@ public abstract class AbstractExchange implements Exchange {
 		return orderbookCache.getOrderbook(symbol);
 	}
 	
+	protected void addFill(String strategyName, Fill fill) {
+		fillCache.addFill(strategyName, fill);
+	}
+	
 	@Override
-	public List<Fill> getFill(String strategyName, String userName) {
-		return null;
+	public List<Fill> getFill(String strategyName) {
+		return fillCache.getFill(strategyName);
 	}
 	
 	protected void updateOrderbook(String symbol, Orderbook orderbook) {

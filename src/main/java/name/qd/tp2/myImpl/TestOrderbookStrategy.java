@@ -42,14 +42,13 @@ public class TestOrderbookStrategy extends AbstractStrategy {
 			Double askPrice = orderbook.getAskTopPrice(1)[0];
 			Double askQty = orderbook.getAskTopQty(1)[0];
 			
-//			System.out.println(bidPrice + ":" + bidQty + ", " + askPrice + ":" + askQty);
+			System.out.println(bidPrice + ":" + bidQty + ", " + askPrice + ":" + askQty);
 		}
 	}
 	
 	public static void main(String[] s) {
 		try {
 			StrategyConfig strategyConfig = new JsonStrategyConfig("./config/test.json");
-			TestOrderbookConfig config = new TestOrderbookConfig();
 			TestOrderbookStrategy strategy = new TestOrderbookStrategy(strategyConfig);
 			strategy.start();
 		} catch (Exception e) {

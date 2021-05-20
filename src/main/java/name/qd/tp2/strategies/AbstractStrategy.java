@@ -34,8 +34,8 @@ public abstract class AbstractStrategy implements Strategy {
 			}
 		}
 		
-		setUserInfo();
 		subscribeAllSymbol();
+		setUserInfo();
 	}
 	
 	public void start() {

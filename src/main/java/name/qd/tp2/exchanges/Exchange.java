@@ -16,7 +16,7 @@ public interface Exchange {
 	public void subscribe(String symbol);
 	public void unsubscribe(String symbol);
 	public Orderbook getOrderbook(String symbol);
-	public List<Fill> getFill(String strategyName, String userName);
+	public List<Fill> getFill(String strategyName);
 	
 	public String sendLimitOrder(String userName, String strategyName, String symbol, BuySell buySell, double price, double qty);
 	public String sendMarketOrder(String userName, String strategyName, String symbol, BuySell buySell, double qty);

@@ -2,14 +2,21 @@ package name.qd.tp2.exchanges.vo;
 
 public class Fill {
 	private String userName;
+	private String orderId;
 	private String symbol;
-	private String price;
-	private String qty;
+	private double price;
+	private double qty;
 	public String getUserName() {
 		return userName;
 	}
 	public void setUserName(String userName) {
 		this.userName = userName;
+	}
+	public String getOrderId() {
+		return orderId;
+	}
+	public void setOrderId(String orderId) {
+		this.orderId = orderId;
 	}
 	public String getSymbol() {
 		return symbol;
@@ -17,16 +24,16 @@ public class Fill {
 	public void setSymbol(String symbol) {
 		this.symbol = symbol;
 	}
-	public String getPrice() {
+	public double getPrice() {
 		return price;
 	}
-	public void setPrice(String price) {
+	public void setPrice(double price) {
 		this.price = price;
 	}
-	public String getQty() {
+	public double getQty() {
 		return qty;
 	}
-	public void setQty(String qty) {
+	public void setQty(double qty) {
 		this.qty = qty;
 	}
 }

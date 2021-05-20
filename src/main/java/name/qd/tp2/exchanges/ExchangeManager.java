@@ -78,8 +78,8 @@ public class ExchangeManager {
 		return null;
 	}
 	
-	public List<Fill> getFill(String strategyName, String exchange, String userName) {
-		return null;
+	public List<Fill> getFill(String strategyName, String exchange) {
+		return mapExchange.get(exchange).getFill(strategyName);
 	}
 	
 	public String sendOrder(String strategyName, String exchange, String userName, String symbol, BuySell buySell, double price, double qty) {

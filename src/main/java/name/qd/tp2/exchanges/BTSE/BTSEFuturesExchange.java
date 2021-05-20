@@ -2,6 +2,7 @@ package name.qd.tp2.exchanges.BTSE;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -22,6 +23,7 @@ import name.qd.tp2.exchanges.AbstractExchange;
 import name.qd.tp2.exchanges.ChannelMessageHandler;
 import name.qd.tp2.exchanges.Exchange;
 import name.qd.tp2.exchanges.vo.ApiKeySecret;
+import name.qd.tp2.exchanges.vo.Fill;
 import name.qd.tp2.exchanges.vo.Orderbook;
 import name.qd.tp2.utils.JsonUtils;
 import okhttp3.HttpUrl;
@@ -40,6 +42,11 @@ public class BTSEFuturesExchange extends AbstractExchange {
 	private final ExecutorService executor = Executors.newSingleThreadExecutor();
 	private ChannelMessageHandler channelMessageHandler = new BTSEChannelMessageHandler();
 	private boolean isWebSocketConnect = false;
+	
+	// orderId, strategyName
+	private Map<String, String> mapOrderIdToStrategy = new HashMap<>();
+	// orderId, userName
+	private Map<String, String> mapOrderIdToUserName = new HashMap<>();
 	
 	private MediaType MEDIA_TYPE_JSON = MediaType.parse("application/json; charset=utf-8");
 	
@@ -123,7 +130,7 @@ public class BTSEFuturesExchange extends AbstractExchange {
 		objectNode.put("size", qty);
 		objectNode.put("symbol", symbol);
 		objectNode.put("type", "LIMIT");
-		return sendOrder(userName, objectNode);
+		return sendOrder(strategyName, userName, objectNode);
 	}
 	
 	@Override
@@ -133,10 +140,10 @@ public class BTSEFuturesExchange extends AbstractExchange {
 		objectNode.put("size", qty);
 		objectNode.put("symbol", symbol);
 		objectNode.put("type", "MARKET");
-		return sendOrder(userName, objectNode);
+		return sendOrder(strategyName, userName, objectNode);
 	}
 	
-	private String sendOrder(String userName, ObjectNode objectNode) {
+	private String sendOrder(String strategyName, String userName, ObjectNode objectNode) {
 		ApiKeySecret apiKeySecret = getApiKeySecret(userName);
 		String nonce = String.valueOf(System.currentTimeMillis());
 		String sign = null;
@@ -169,6 +176,11 @@ public class BTSEFuturesExchange extends AbstractExchange {
 			}
 		} catch (IOException e) {
 			log.error("send order failed. {}", responseString, e);
+		}
+		
+		if(orderId != null) {
+			mapOrderIdToStrategy.put(orderId, strategyName);
+			mapOrderIdToUserName.put(orderId, userName);
 		}
 		
 		return orderId;
@@ -265,8 +277,29 @@ public class BTSEFuturesExchange extends AbstractExchange {
 		updateOrderbook(symbol, orderbook);
 	}
 	
-	private void processFill() {
-		
+	private void processNotification(JsonNode node) {
+		for(JsonNode notificationNode : node) {
+			int orderStatus = notificationNode.get("status").asInt();
+			if(orderStatus == 4 || orderStatus == 5) {
+				processFill(notificationNode);
+			}
+		}
+	}
+	
+	private void processFill(JsonNode node) {
+		String orderId = node.get("orderID").asText();
+		String strategyName = mapOrderIdToStrategy.get(orderId);
+		String userName = mapOrderIdToUserName.get(orderId);
+		if(strategyName != null) {
+			Fill fill = new Fill();
+			fill.setOrderId(orderId);
+			fill.setUserName(userName);
+			fill.setSymbol(node.get("symbol").asText());
+			fill.setPrice(node.get("price").asDouble());
+			fill.setQty(node.get("fillSize").asDouble());
+			
+			addFill(strategyName, fill);
+		}
 	}
 	
 	private String getSign(String userName, String path, String nonce, String data) throws UnsupportedEncodingException {
@@ -312,6 +345,10 @@ public class BTSEFuturesExchange extends AbstractExchange {
 					String messageType = node.get("topic").asText();
 					if("orderBook".equals(messageType)) {
 						processOrderbook(node);
+					} else if("notificationApiV2".equals(messageType)) {
+						processNotification(node);
+					} else {
+						log.error("BTSE websocket received unknown message: {}", text);
 					}
 				} else {
 					log.error("BTSE websocket received unknown message: {}", text);
