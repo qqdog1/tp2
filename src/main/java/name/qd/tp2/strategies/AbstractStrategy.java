@@ -44,6 +44,10 @@ public abstract class AbstractStrategy implements Strategy {
 	
 	public abstract void strategyAction();
 	
+	protected String getConfig(String key) {
+		return strategyConfig.getConfig(key);
+	}
+	
 	private void initAllExchange() {
 		Set<String> exchanges = strategyConfig.getAllExchange();
 		for(String exchange : exchanges) {
