@@ -9,7 +9,6 @@ import name.qd.tp2.exchanges.vo.ApiKeySecret;
 import name.qd.tp2.strategies.vo.TradingPair;
 
 public abstract class AbstractStrategyConfig implements StrategyConfig {
-	private Map<String, String> mapConfigs = new HashMap<>();
 	private TradingPair tradingPair = new TradingPair();
 	private Map<String, Map<String, ApiKeySecret>> mapApiKeys = new HashMap<>();
 	private Map<String, String> mapCustomize = new HashMap<>();
@@ -24,14 +23,6 @@ public abstract class AbstractStrategyConfig implements StrategyConfig {
 	
 	public void addSymbol(String exchange, String symbol) {
 		tradingPair.addSymbol(exchange, symbol);
-	}
-	
-	public void setConfig(String key, String value) {
-		mapConfigs.put(key, value);
-	}
-	
-	public String getConfig(String key) {
-		return mapConfigs.get(key);
 	}
 	
 	public void addApiKeySecret(String exchange, String userName, String apiKey, String secret) {

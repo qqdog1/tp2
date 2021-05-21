@@ -16,6 +16,7 @@ public abstract class AbstractStrategy implements Strategy {
 	private final ExecutorService executor = Executors.newSingleThreadExecutor();
 	
 	private StrategyConfig strategyConfig;
+	private boolean isStrategyReady = false;
 	
 	public AbstractStrategy(StrategyConfig strategyConfig) {
 		this.strategyConfig = strategyConfig;
@@ -36,17 +37,25 @@ public abstract class AbstractStrategy implements Strategy {
 		
 		subscribeAllSymbol();
 		setUserInfo();
+		
+		isStrategyReady = true;
 	}
 	
 	public void start() {
-		executor.execute(new StrategyCycle());
+		while(true) {
+			if(isStrategyReady) {
+				executor.execute(new StrategyCycle());
+				break;
+			}
+			try {
+				Thread.sleep(200);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}
 	}
 	
 	public abstract void strategyAction();
-	
-	protected String getConfig(String key) {
-		return strategyConfig.getConfig(key);
-	}
 	
 	private void initAllExchange() {
 		Set<String> exchanges = strategyConfig.getAllExchange();
