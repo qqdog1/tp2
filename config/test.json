@@ -8,13 +8,18 @@
       "user": [
         {
           "name": "shawn",
-          "apiKey": "asfsdlafj;asdf",
-          "secret": "asfsadfsad"
+          "apiKey": "b18c0dad9b3d41861e44b88ddf1ae401d23cf99698cc00b3df81d7196f4b42da",
+          "secret": "2a61789c7d8753ee5b9da19c80b2ad8213a272cf261dddffb2cc64ce76ea396e"
         }
       ]
     }
   ],
   "customizeSettings": {
-    "abc": "QQ"
+    "priceRange": 10,
+    "firstContractSize": 10,
+    "stopProfit": 3,
+    "fee": 0.0004,
+	"tickSize": 0.05,
+	"orderLevel": 5
   }
 }
