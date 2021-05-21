@@ -89,11 +89,11 @@ public class GridTestStrategy extends AbstractStrategy {
 			// targetPrice 可以先下停利單
 		} else if(currentLevel > 0) {
 			if(price <= priceLevel.get(currentLevel -1)) {
-				log.info("open order: {}, {} contracts", price, position);
-				averagePrice = (averagePrice * position) + (price * position) / (position * 2);
+				log.info("open order: {}, {} contracts", priceLevel.get(currentLevel -1), position);
+				averagePrice = (averagePrice * position) + (priceLevel.get(currentLevel -1) * position) / (position * 2);
 				position += position;
 				targetPrice = averagePrice * stopProfit;
-				currentFees += price * firstContractSize * fee;
+				currentFees += priceLevel.get(currentLevel -1) * firstContractSize * fee;
 				currentLevel ++;
 			}
 		}
