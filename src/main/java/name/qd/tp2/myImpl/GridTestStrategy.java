@@ -80,27 +80,29 @@ public class GridTestStrategy extends AbstractStrategy {
 			position = firstContractSize;
 			averagePrice = price;
 			targetPrice = averagePrice * stopProfit;
-			currentFees += price * firstContractSize * fee;
+			currentFees += price * firstContractSize * fee / 100d;
 			currentLevel = 1;
 			for(int i = 0 ; i < orderLevel - 1; i++) {
 				double lastPrice = i == 0 ? price : priceLevel.get(i - 1);
 				priceLevel.add(lastPrice - firstContractSize * Math.pow(2, i));
 			}
+			log.info("average price:{}, target price:{}, fees:{}", averagePrice, targetPrice, currentFees);
 			// targetPrice 可以先下停利單
-		} else if(currentLevel > 0) {
+		} else if(currentLevel > 0 && currentLevel < orderLevel) {
 			if(price <= priceLevel.get(currentLevel -1)) {
 				log.info("open order: {}, {} contracts", priceLevel.get(currentLevel -1), position);
-				averagePrice = (averagePrice * position) + (priceLevel.get(currentLevel -1) * position) / (position * 2);
+				averagePrice = ((averagePrice * position) + (priceLevel.get(currentLevel -1) * position)) / (position * 2);
 				position += position;
 				targetPrice = averagePrice * stopProfit;
-				currentFees += priceLevel.get(currentLevel -1) * firstContractSize * fee;
+				currentFees += priceLevel.get(currentLevel -1) * firstContractSize * fee / 100d;
 				currentLevel ++;
+				log.info("average price:{}, target price:{}, fees:{}", averagePrice, targetPrice, currentFees);
 			}
 		}
 	}
 	
 	private void stopProfit(double price) {
-		double pnl = (price - averagePrice) * (position / 100) - currentFees;
+		double pnl = (price - averagePrice) * (position / 100d) - currentFees;
 		
 		log.info("stop profit: {}, {} contracts, pnl:{}", price, position, pnl);
 		position = 0;

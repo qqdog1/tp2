@@ -102,6 +102,13 @@ public abstract class AbstractStrategy implements Strategy {
 		public void run() {
 			while (!Thread.currentThread().isInterrupted()) {
 				strategyAction();
+				
+				// 睡一下電腦要爆了
+				try {
+					Thread.sleep(200);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
 			}
 		}
 	}
