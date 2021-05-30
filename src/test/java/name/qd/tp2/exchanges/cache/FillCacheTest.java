@@ -1,5 +1,6 @@
 package name.qd.tp2.exchanges.cache;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -16,6 +17,12 @@ public class FillCacheTest {
 	void init() {
 		fillCache = new FillCache();
 	}
+	
+	@Test
+	public void getNullCache() {
+		List<Fill> lst = fillCache.getFill("test");
+		assertEquals(lst.size(), 0);
+	}
 
 	@Test
 	public void pushAndPop() {
@@ -31,25 +38,22 @@ public class FillCacheTest {
 		fillB.setQty(0.111d);
 		fillB.setSymbol("ETH");
 		
-		// offer A
+		// add A
 		fillCache.addFill("TEST", fillA);
-		// offer B
+		// add B
 		fillCache.addFill("TEST", fillB);
-		// pop should get A
-//		List<Fill> fill = fillCache.getFill("TEST");
-//		assertTrue(fill.getUserName().equals(fillA.getUserName()));
-//		assertTrue(fill.getPrice().equals(fillA.getPrice()));
-//		assertTrue(fill.getQty().equals(fillA.getQty()));
-//		assertTrue(fill.getSymbol().equals(fillA.getSymbol()));
-//		// pop should get B
-//		fill = fillCache.popFill("TEST");
-//		assertTrue(fill.getUserName().equals(fillB.getUserName()));
-//		assertTrue(fill.getPrice().equals(fillB.getPrice()));
-//		assertTrue(fill.getQty().equals(fillB.getQty()));
-//		assertTrue(fill.getSymbol().equals(fillB.getSymbol()));
-//		
-//		// pop should get null
-//		fill = fillCache.popFill("TEST");
-//		assertTrue(fill == null);
+		// should get A
+		List<Fill> lst = fillCache.getFill("TEST");
+		Fill fill = lst.get(0);
+		assertTrue(fill.getUserName().equals(fillA.getUserName()));
+		assertTrue(fill.getPrice() == fillA.getPrice());
+		assertTrue(fill.getQty() == fillA.getQty());
+		assertTrue(fill.getSymbol() == fillA.getSymbol());
+		// should get B
+		fill = lst.get(1);
+		assertTrue(fill.getUserName().equals(fillB.getUserName()));
+		assertTrue(fill.getPrice() == fillB.getPrice());
+		assertTrue(fill.getQty() == fillB.getQty());
+		assertTrue(fill.getSymbol().equals(fillB.getSymbol()));
 	}
 }

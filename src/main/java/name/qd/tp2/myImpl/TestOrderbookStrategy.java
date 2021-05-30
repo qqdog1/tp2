@@ -3,7 +3,6 @@ package name.qd.tp2.myImpl;
 import name.qd.tp2.constants.BuySell;
 import name.qd.tp2.exchanges.ExchangeManager;
 import name.qd.tp2.exchanges.vo.Orderbook;
-import name.qd.tp2.myImpl.config.TestOrderbookConfig;
 import name.qd.tp2.strategies.AbstractStrategy;
 import name.qd.tp2.strategies.config.JsonStrategyConfig;
 import name.qd.tp2.strategies.config.StrategyConfig;

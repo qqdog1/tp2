@@ -24,6 +24,7 @@ public abstract class AbstractStrategy implements Strategy {
 		initAllExchange();
 		
 		while(true) {
+			// TODO 這邊要改成實作一個 isExchangeWebsocketReady
 			if(isAllExchangeReady()) {
 				break;
 			}
@@ -35,6 +36,7 @@ public abstract class AbstractStrategy implements Strategy {
 			}
 		}
 		
+		// TODO 這兩個subscribe完 exchange才算真的ready
 		subscribeAllSymbol();
 		setUserInfo();
 		
@@ -46,11 +48,6 @@ public abstract class AbstractStrategy implements Strategy {
 			if(isStrategyReady) {
 				executor.execute(new StrategyCycle());
 				break;
-			}
-			try {
-				Thread.sleep(200);
-			} catch (InterruptedException e) {
-				e.printStackTrace();
 			}
 		}
 	}

@@ -2,10 +2,14 @@ package name.qd.tp2.exchanges.BTSE;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.codec.digest.HmacAlgorithms;
@@ -35,11 +39,14 @@ import okhttp3.WebSocket;
 import okhttp3.WebSocketListener;
 
 public class BTSEFuturesExchange extends AbstractExchange {
-	private static String REST_URL = "https://api.btse.com/futures/";
-	private static String WS_URL = "wss://ws.btse.com/ws/futures";
+//	private static String REST_URL = "https://api.btse.com/futures/";
+//	private static String WS_URL = "wss://ws.btse.com/ws/futures";
+	private static String REST_URL = "https://testapi.btse.io/futures";
+	private static String WS_URL = "wss://testws.btse.io/ws/futures";
 	
 	private Logger log = LoggerFactory.getLogger(BTSEFuturesExchange.class);
 	private final ExecutorService executor = Executors.newSingleThreadExecutor();
+	private final ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
 	private ChannelMessageHandler channelMessageHandler = new BTSEChannelMessageHandler();
 	private boolean isWebSocketConnect = false;
 	
@@ -47,6 +54,8 @@ public class BTSEFuturesExchange extends AbstractExchange {
 	private Map<String, String> mapOrderIdToStrategy = new HashMap<>();
 	// orderId, userName
 	private Map<String, String> mapOrderIdToUserName = new HashMap<>();
+	// unknown fill
+	private Map<Integer, List<Fill>> mapUnknownFill = new HashMap<>();
 	
 	private MediaType MEDIA_TYPE_JSON = MediaType.parse("application/json; charset=utf-8");
 	
@@ -54,6 +63,7 @@ public class BTSEFuturesExchange extends AbstractExchange {
 		super(REST_URL, WS_URL);
 		
 		executor.execute(channelMessageHandler);
+		scheduledExecutorService.scheduleAtFixedRate(new BTSERunner(), 0, 1, TimeUnit.SECONDS);
 		if(webSocket == null) initWebSocket(new BTSEWebSocketListener());
 	}
 	
@@ -100,6 +110,7 @@ public class BTSEFuturesExchange extends AbstractExchange {
 	
 	@Override
 	public boolean isReady() {
+		// TODO
 		// 這個交易所websocket連上就算ready
 		return isWebSocketConnect;
 	}
@@ -168,7 +179,7 @@ public class BTSEFuturesExchange extends AbstractExchange {
 			JsonNode node = JsonUtils.objectMapper.readTree(responseString);
 			for(JsonNode ackNode : node) {
 				int orderStatus = ackNode.get("status").asInt();
-				if(orderStatus == 2) {
+				if(orderStatus == 2 || orderStatus == 4 || orderStatus == 5) {
 					orderId = ackNode.get("orderID").asText();
 				} else {
 					log.error("Order failed: {}", responseString);
@@ -278,7 +289,8 @@ public class BTSEFuturesExchange extends AbstractExchange {
 	}
 	
 	private void processNotification(JsonNode node) {
-		for(JsonNode notificationNode : node) {
+		System.out.println(node.toString());
+		for(JsonNode notificationNode : node.get("data")) {
 			int orderStatus = notificationNode.get("status").asInt();
 			if(orderStatus == 4 || orderStatus == 5) {
 				processFill(notificationNode);
@@ -290,15 +302,22 @@ public class BTSEFuturesExchange extends AbstractExchange {
 		String orderId = node.get("orderID").asText();
 		String strategyName = mapOrderIdToStrategy.get(orderId);
 		String userName = mapOrderIdToUserName.get(orderId);
+		
+		Fill fill = new Fill();
+		fill.setOrderId(orderId);
+		fill.setSymbol(node.get("symbol").asText());
+		fill.setPrice(node.get("price").asDouble());
+		fill.setQty(node.get("fillSize").asDouble());
+		
 		if(strategyName != null) {
-			Fill fill = new Fill();
-			fill.setOrderId(orderId);
 			fill.setUserName(userName);
-			fill.setSymbol(node.get("symbol").asText());
-			fill.setPrice(node.get("price").asDouble());
-			fill.setQty(node.get("fillSize").asDouble());
-			
 			addFill(strategyName, fill);
+		} else {
+			log.warn("Received unknown fill, put to unknown fill cache.");
+			if(!mapUnknownFill.containsKey(1)) {
+				mapUnknownFill.put(1, new ArrayList<>());
+			}
+			mapUnknownFill.get(1).add(fill);
 		}
 	}
 	
@@ -333,6 +352,34 @@ public class BTSEFuturesExchange extends AbstractExchange {
 		public void onFailure(WebSocket webSocket, Throwable t, Response response) {
 			isWebSocketConnect = false;
 			log.error("BTSE websocket failure.", t);
+		}
+	}
+	
+	private class BTSERunner implements Runnable {
+		@Override
+		public void run() {
+			for(Integer i = 3 ; i > 0 ; i--) {
+				if(mapUnknownFill.containsKey(i)) {
+					for(Fill fill : mapUnknownFill.get(i)) {
+						String orderId = fill.getOrderId();
+						String strategyName = mapOrderIdToStrategy.get(orderId);
+						String userName = mapOrderIdToUserName.get(orderId);
+						if(strategyName != null) {
+							fill.setUserName(userName);
+							addFill(strategyName, fill);
+						} else {
+							if(i != 3) {
+								Integer times = i + 1;
+								if(!mapUnknownFill.containsKey(times)) {
+									mapUnknownFill.put(times, new ArrayList<>());
+								}
+								mapUnknownFill.get(times).add(fill);
+							}
+						}
+					}
+					mapUnknownFill.get(i).clear();
+				}
+			}
 		}
 	}
 	
