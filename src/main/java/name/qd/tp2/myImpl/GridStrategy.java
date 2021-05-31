@@ -152,6 +152,11 @@ public class GridStrategy extends AbstractStrategy {
 					position -= fill.getQty();
 					if(position == firstContractSize ) {
 						log.info("停利單完全成交");
+						// 重算成本
+						averagePrice = fill.getPrice();
+						// 重算目標價
+						targetPrice = averagePrice * stopProfit;
+						targetPrice -= targetPrice % tickSize;
 						// 刪除之前鋪單
 						cancelOrder(null);
 						// 鋪單
