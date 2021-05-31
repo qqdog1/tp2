@@ -174,6 +174,9 @@ public class GridStrategy extends AbstractStrategy {
 					if(stopProfitOrderId != null) {
 						if(!cancelOrder(stopProfitOrderId)) {
 							log.error("清除舊的停利單失敗 orderId:{}", stopProfitOrderId);
+						} else {
+							stopProfitOrderId = null;
+							log.info("清除舊的停利單");
 						}
 					}
 					// 下新的停利單
