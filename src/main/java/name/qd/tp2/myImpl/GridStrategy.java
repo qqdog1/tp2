@@ -1,6 +1,5 @@
 package name.qd.tp2.myImpl;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
@@ -49,7 +48,7 @@ public class GridStrategy extends AbstractStrategy {
 		// 把設定值從config讀出來
 		priceRange = Integer.parseInt(strategyConfig.getCustomizeSettings("priceRange"));
 		firstContractSize = Integer.parseInt(strategyConfig.getCustomizeSettings("firstContractSize"));
-		stopProfit = Double.parseDouble(strategyConfig.getCustomizeSettings("stopProfit")) / 100 + 1;
+		stopProfit = Double.parseDouble(strategyConfig.getCustomizeSettings("stopProfit"));
 		fee = Double.parseDouble(strategyConfig.getCustomizeSettings("fee"));
 		tickSize = Double.parseDouble(strategyConfig.getCustomizeSettings("tickSize"));
 		orderLevel = Integer.parseInt(strategyConfig.getCustomizeSettings("orderLevel"));
@@ -63,6 +62,8 @@ public class GridStrategy extends AbstractStrategy {
 		checkFill();
 		if(position == 0) {
 			setFirstOrder();
+		} else {
+			checkFirstOrderProfit();
 		}
 		
 		// 給GTC多一點時間 且電腦要爆了
@@ -100,16 +101,45 @@ public class GridStrategy extends AbstractStrategy {
 			}
 		}
 	}
+	
+	private void checkFirstOrderProfit() {
+		// 第一單存在的狀況下
+		// 如果第一單達目標價
+		// 將第一單算成新的一次交易的第一單
+		// 重新鋪單
+		if(position == firstContractSize) {
+			// 第一單完全成交狀態下
+			Orderbook orderbook = exchangeManager.getOrderbook(ExchangeManager.BTSE_EXCHANGE_NAME, symbol);
+			if(orderbook != null) {
+				double price = orderbook.getBidTopPrice(1)[0];
+				if(price >= targetPrice) {
+					log.info("第一單到達停利價格 直接當下一單的第一單");
+					// 刪除所有鋪單
+					cancelOrder(null);
+					// 更新成本價格
+					averagePrice = targetPrice;
+					// 更新停利價格
+					targetPrice = averagePrice * stopProfit;
+					targetPrice -= targetPrice % tickSize;
+					// 重新鋪單
+					placeLevelOrders(averagePrice);
+				}
+			}
+		}
+	}
 
 	private void checkFill() {
 		List<Fill> lstFill = exchangeManager.getFill(strategyName, ExchangeManager.BTSE_EXCHANGE_NAME);
 		for(Fill fill : lstFill) {
 			log.debug("收到成交 {} {} {}", fill.getPrice(), fill.getQty(), fill.getOrderId());
 			if(position < firstContractSize) {
-				averagePrice = (position * averagePrice) + (fill.getPrice() * fill.getQty()) / (position + fill.getQty());
+				averagePrice = ((position * averagePrice) + (fill.getPrice() * fill.getQty())) / (position + fill.getQty());
 				position += fill.getQty();
 				if(position == firstContractSize) {
 					log.info("第一單完全成交");
+					// 更新目標價
+					targetPrice = averagePrice * stopProfit;
+					targetPrice -= targetPrice % tickSize;
 					// 完全成交
 					// 鋪單
 					placeLevelOrders(averagePrice);
@@ -122,6 +152,8 @@ public class GridStrategy extends AbstractStrategy {
 					position -= fill.getQty();
 					if(position == firstContractSize ) {
 						log.info("停利單完全成交");
+						// 刪除之前鋪單
+						cancelOrder(null);
 						// 鋪單
 						placeLevelOrders(fill.getPrice());
 					} else {
@@ -131,7 +163,7 @@ public class GridStrategy extends AbstractStrategy {
 					// 一般單成交
 					
 					// 重算成本  改停利單
-					averagePrice = (position * averagePrice) + (fill.getPrice() * fill.getQty()) / (position + fill.getQty());
+					averagePrice = ((position * averagePrice) + (fill.getPrice() * fill.getQty())) / (position + fill.getQty());
 					position += fill.getQty();
 					// 清除舊的停利單
 					if(stopProfitOrderId != null) {
