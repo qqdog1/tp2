@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import name.qd.tp2.exchanges.cache.FillCache;
@@ -46,6 +47,10 @@ public abstract class AbstractExchange implements Exchange {
 	
 	public void addUser(String userName, ApiKeySecret apiKeySecret) {
 		mapKeySecret.put(userName, apiKeySecret);
+	}
+	
+	public Set<String> getAllUser() {
+		return mapKeySecret.keySet();
 	}
 	
 	public ApiKeySecret getApiKeySecret(String userName) {

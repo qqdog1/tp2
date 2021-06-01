@@ -23,6 +23,7 @@ public abstract class AbstractStrategy implements Strategy {
 		
 		initAllExchange();
 		
+		// TODO 搬到最後
 		while(true) {
 			// TODO 這邊要改成實作一個 isExchangeWebsocketReady
 			if(isAllExchangeReady()) {
