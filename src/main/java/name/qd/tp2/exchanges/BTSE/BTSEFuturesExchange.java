@@ -41,10 +41,10 @@ import okhttp3.WebSocket;
 import okhttp3.WebSocketListener;
 
 public class BTSEFuturesExchange extends AbstractExchange {
-//	private static String REST_URL = "https://api.btse.com/futures/";
-//	private static String WS_URL = "wss://ws.btse.com/ws/futures";
-	private static String REST_URL = "https://testapi.btse.io/futures";
-	private static String WS_URL = "wss://testws.btse.io/ws/futures";
+	private static String REST_URL = "https://api.btse.com/futures/";
+	private static String WS_URL = "wss://ws.btse.com/ws/futures";
+//	private static String REST_URL = "https://testapi.btse.io/futures";
+//	private static String WS_URL = "wss://testws.btse.io/ws/futures";
 
 	private Logger log = LoggerFactory.getLogger(BTSEFuturesExchange.class);
 	private final ExecutorService executor = Executors.newSingleThreadExecutor();

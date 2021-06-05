@@ -36,6 +36,7 @@ public class GridStrategy extends AbstractStrategy {
 	// 這個策略要用到的值 全部都設定在config
 	private int priceRange;
 	private int firstContractSize;
+	private String stopProfitType;
 	private double stopProfit;
 	private double fee;
 	private double tickSize;
@@ -48,6 +49,7 @@ public class GridStrategy extends AbstractStrategy {
 		// 把設定值從config讀出來
 		priceRange = Integer.parseInt(strategyConfig.getCustomizeSettings("priceRange"));
 		firstContractSize = Integer.parseInt(strategyConfig.getCustomizeSettings("firstContractSize"));
+		stopProfitType = strategyConfig.getCustomizeSettings("stopProfitType");
 		stopProfit = Double.parseDouble(strategyConfig.getCustomizeSettings("stopProfit"));
 		fee = Double.parseDouble(strategyConfig.getCustomizeSettings("fee"));
 		tickSize = Double.parseDouble(strategyConfig.getCustomizeSettings("tickSize"));
@@ -68,7 +70,7 @@ public class GridStrategy extends AbstractStrategy {
 		
 		// 給GTC多一點時間 且電腦要爆了
 		try {
-			Thread.sleep(500);
+			Thread.sleep(1000);
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		}
@@ -79,6 +81,7 @@ public class GridStrategy extends AbstractStrategy {
 			// cancel order
 			if(!cancelOrder(firstOrderId)) {
 				log.error("刪除第一筆單失敗 orderId:{}", firstOrderId);
+				lineNotifyUtils.sendMessage("刪除第一單失敗");
 			} else {
 				log.debug("刪除未成交第一單 {}", firstOrderId);
 				firstOrderId = null;
@@ -86,7 +89,6 @@ public class GridStrategy extends AbstractStrategy {
 		}
 		
 		// 上面刪單成功 id變null, 或是本來就沒單
-		// 或是第一單已經成交
 		if(firstOrderId == null && stopProfitOrderId == null) {
 			Orderbook orderbook = exchangeManager.getOrderbook(ExchangeManager.BTSE_EXCHANGE_NAME, symbol);
 			if(orderbook == null) return;
@@ -119,8 +121,7 @@ public class GridStrategy extends AbstractStrategy {
 					// 更新成本價格
 					averagePrice = targetPrice;
 					// 更新停利價格
-					targetPrice = averagePrice * stopProfit;
-					targetPrice -= targetPrice % tickSize;
+					targetPrice = getTargetPrice(averagePrice);
 					// 重新鋪單
 					placeLevelOrders(averagePrice);
 				}
@@ -137,14 +138,15 @@ public class GridStrategy extends AbstractStrategy {
 				position += fill.getQty();
 				if(position == firstContractSize) {
 					log.info("第一單完全成交");
+					lineNotifyUtils.sendMessage("第一單完全成交");
 					// 更新目標價
-					targetPrice = averagePrice * stopProfit;
-					targetPrice -= targetPrice % tickSize;
+					targetPrice = getTargetPrice(averagePrice);
 					// 完全成交
 					// 鋪單
 					placeLevelOrders(averagePrice);
 				} else {
 					log.warn("第一單部分成交 {} {}", fill.getPrice(), fill.getQty());
+					lineNotifyUtils.sendMessage("第一單部分成交");
 				}
 			} else {
 				if(fill.getOrderId().equals(stopProfitOrderId)) {
@@ -152,17 +154,18 @@ public class GridStrategy extends AbstractStrategy {
 					position -= fill.getQty();
 					if(position == firstContractSize ) {
 						log.info("停利單完全成交");
+						lineNotifyUtils.sendMessage("停利單完全成交");
 						// 重算成本
 						averagePrice = fill.getPrice();
 						// 重算目標價
-						targetPrice = averagePrice * stopProfit;
-						targetPrice -= targetPrice % tickSize;
+						targetPrice = getTargetPrice(averagePrice);
 						// 刪除之前鋪單
 						cancelOrder(null);
 						// 鋪單
 						placeLevelOrders(fill.getPrice());
 					} else {
 						log.warn("停利單部分成交 {}, {}", fill.getPrice(), fill.getQty());
+						lineNotifyUtils.sendMessage("停利單部分成交");
 					}
 				} else {
 					// 一般單成交
@@ -174,20 +177,21 @@ public class GridStrategy extends AbstractStrategy {
 					if(stopProfitOrderId != null) {
 						if(!cancelOrder(stopProfitOrderId)) {
 							log.error("清除舊的停利單失敗 orderId:{}", stopProfitOrderId);
+							lineNotifyUtils.sendMessage("清除舊的停利單失敗");
 						} else {
 							stopProfitOrderId = null;
 							log.info("清除舊的停利單");
 						}
 					}
 					// 下新的停利單
-					targetPrice = averagePrice * stopProfit;
-					targetPrice -= targetPrice % tickSize;
+					targetPrice = getTargetPrice(averagePrice);
 					String orderId = sendOrder(BuySell.SELL, targetPrice, position - firstContractSize);
 					if(orderId != null) {
 						stopProfitOrderId = orderId;
 						log.info("下停利單 {} {} {}", targetPrice, position - firstContractSize, orderId);
 					} else {
 						log.warn("下停利單失敗");
+						lineNotifyUtils.sendMessage("下停利單失敗");
 					}
 				}
 			}
@@ -203,6 +207,7 @@ public class GridStrategy extends AbstractStrategy {
 				log.info("鋪單 {} {} {}", i, basePrice, qty);
 			} else {
 				log.error("鋪單失敗 {} {} {}", i, basePrice, qty);
+				lineNotifyUtils.sendMessage("鋪單失敗");
 			}
 		}
 	}
@@ -214,13 +219,29 @@ public class GridStrategy extends AbstractStrategy {
 	private boolean cancelOrder(String orderId) {
 		return exchangeManager.cancelOrder(strategyName, ExchangeManager.BTSE_EXCHANGE_NAME, userName, symbol, orderId);
 	}
+	
+	private double getTargetPrice(double price) {
+		if(stopProfitType.equals("rate")) {
+			price =  price * stopProfit;
+			price -= price % tickSize;
+		} else if(stopProfitType.equals("fix")) {
+			price =  price + stopProfit;
+		} else {
+			price = price * 1.008d;
+			price -= price % tickSize;
+			log.error("unknown stop profit type: {}", stopProfitType);
+		}
+		return price;
+	}
 
 	public static void main(String[] s) {
 		Properties prop = System.getProperties();
 		prop.setProperty("log4j.configurationFile", "./config/log4j2.xml");
 		
 		try {
-			GridStrategy strategy = new GridStrategy(new JsonStrategyConfig("./config/testnet.json"));
+//			String configPath = "./config/testnet.json";
+			String configPath = "./config/test.json";
+			GridStrategy strategy = new GridStrategy(new JsonStrategyConfig(configPath));
 			strategy.start();
 		} catch (Exception e) {
 			e.printStackTrace();
