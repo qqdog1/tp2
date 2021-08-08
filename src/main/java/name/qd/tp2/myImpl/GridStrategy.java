@@ -62,19 +62,20 @@ public class GridStrategy extends AbstractStrategy {
 		
 		// 若有設定剩餘未平倉單
 		// 讓策略可以接續
-		isStartWithRemain = (strategyConfig.getCustomizeSettings("remainQty") != null && strategyConfig.getCustomizeSettings("remainAvgPrice") != null);
+		isStartWithRemain = (strategyConfig.getCustomizeSettings("remainQty") != null && strategyConfig.getCustomizeSettings("remainFirstOrderPrice") != null);
 	}
 	
 	private void startWithRemain() {
 		position = Integer.parseInt(strategyConfig.getCustomizeSettings("remainQty"));
-		averagePrice = Double.parseDouble(strategyConfig.getCustomizeSettings("remainAvgPrice"));
+		double remainFirstOrderPrice = Double.parseDouble(strategyConfig.getCustomizeSettings("remainFirstOrderPrice"));
+		averagePrice = calcCurrentAvgPrice(remainFirstOrderPrice);
 		
 		// 下停利
 		targetPrice = getTargetPrice(averagePrice);
 		placeStopProfitOrder();
 		// 鋪單
 		int startLevel = getRemainOrderLevel(position);
-		placeLevelOrders(startLevel, averagePrice);
+		placeLevelOrders(startLevel, remainFirstOrderPrice);
 	}
 
 	@Override
@@ -257,6 +258,19 @@ public class GridStrategy extends AbstractStrategy {
 			remainQty -= firstContractSize * level;
 		}
 		return level;
+	}
+	
+	private double calcCurrentAvgPrice(double firstOrderPrice) {
+		double cost = firstOrderPrice * firstContractSize;
+		int qty = position - firstContractSize;
+		double price = firstOrderPrice;
+		for(int i = 1 ; qty > 0 ; i++) {
+			price -= (priceRange * Math.pow(2, i-1));
+			double size = firstContractSize * Math.pow(2, i-1);
+			cost +=  price * size;
+			qty -= size;
+		}
+		return cost / position;
 	}
 	
 	private double getTargetPrice(double price) {

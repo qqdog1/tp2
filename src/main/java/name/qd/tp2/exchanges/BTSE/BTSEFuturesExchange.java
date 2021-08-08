@@ -2,6 +2,8 @@ package name.qd.tp2.exchanges.BTSE;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -146,10 +148,9 @@ public class BTSEFuturesExchange extends AbstractExchange {
 	}
 
 	@Override
-	public String sendLimitOrder(String userName, String strategyName, String symbol, BuySell buySell, double price,
-			double qty) {
+	public String sendLimitOrder(String userName, String strategyName, String symbol, BuySell buySell, double price, double qty) {
 		ObjectNode objectNode = JsonUtils.objectMapper.createObjectNode();
-		objectNode.put("price", price);
+		objectNode.put("price", BigDecimal.valueOf(price).setScale(1, RoundingMode.DOWN).doubleValue());
 		objectNode.put("side", buySell.name());
 		objectNode.put("size", qty);
 		objectNode.put("symbol", symbol);
