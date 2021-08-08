@@ -15,7 +15,7 @@ public abstract class AbstractStrategy implements Strategy {
 	protected ExchangeManager exchangeManager = ExchangeManager.getInstance();
 	private final ExecutorService executor = Executors.newSingleThreadExecutor();
 	
-	private StrategyConfig strategyConfig;
+	protected StrategyConfig strategyConfig;
 	private boolean isStrategyReady = false;
 	
 	public AbstractStrategy(StrategyConfig strategyConfig) {

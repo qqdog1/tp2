@@ -43,6 +43,8 @@ public class GridStrategy extends AbstractStrategy {
 	private int orderLevel;
 	private String lineNotify;
 	
+	private boolean isStartWithRemain;
+	
 	public GridStrategy(StrategyConfig strategyConfig) {
 		super(strategyConfig);
 
@@ -57,10 +59,30 @@ public class GridStrategy extends AbstractStrategy {
 		lineNotify = strategyConfig.getCustomizeSettings("lineNotify");
 		
 		lineNotifyUtils = new LineNotifyUtils(lineNotify);
+		
+		// 若有設定剩餘未平倉單
+		// 讓策略可以接續
+		isStartWithRemain = (strategyConfig.getCustomizeSettings("remainQty") != null && strategyConfig.getCustomizeSettings("remainAvgPrice") != null);
+	}
+	
+	private void startWithRemain() {
+		position = Integer.parseInt(strategyConfig.getCustomizeSettings("remainQty"));
+		averagePrice = Double.parseDouble(strategyConfig.getCustomizeSettings("remainAvgPrice"));
+		
+		// 下停利
+		targetPrice = getTargetPrice(averagePrice);
+		placeStopProfitOrder();
+		// 鋪單
+		int startLevel = getRemainOrderLevel(position);
+		placeLevelOrders(startLevel, averagePrice);
 	}
 
 	@Override
 	public void strategyAction() {
+		if(isStartWithRemain) {
+			startWithRemain();
+			isStartWithRemain = false;
+		}
 		checkFill();
 		if(position == 0) {
 			setFirstOrder();
@@ -123,7 +145,7 @@ public class GridStrategy extends AbstractStrategy {
 					// 更新停利價格
 					targetPrice = getTargetPrice(averagePrice);
 					// 重新鋪單
-					placeLevelOrders(averagePrice);
+					placeLevelOrders(1, averagePrice);
 				}
 			}
 		}
@@ -143,7 +165,7 @@ public class GridStrategy extends AbstractStrategy {
 					targetPrice = getTargetPrice(averagePrice);
 					// 完全成交
 					// 鋪單
-					placeLevelOrders(averagePrice);
+					placeLevelOrders(1, averagePrice);
 				} else {
 					log.warn("第一單部分成交 {} {}", fill.getPrice(), fill.getQty());
 					lineNotifyUtils.sendMessage("第一單部分成交");
@@ -162,7 +184,7 @@ public class GridStrategy extends AbstractStrategy {
 						// 刪除之前鋪單
 						cancelOrder(null);
 						// 鋪單
-						placeLevelOrders(fill.getPrice());
+						placeLevelOrders(1, fill.getPrice());
 					} else {
 						log.warn("停利單部分成交 {}, {}", fill.getPrice(), fill.getQty());
 						lineNotifyUtils.sendMessage("停利單部分成交");
@@ -185,21 +207,14 @@ public class GridStrategy extends AbstractStrategy {
 					}
 					// 下新的停利單
 					targetPrice = getTargetPrice(averagePrice);
-					String orderId = sendOrder(BuySell.SELL, targetPrice, position - firstContractSize);
-					if(orderId != null) {
-						stopProfitOrderId = orderId;
-						log.info("下停利單 {} {} {}", targetPrice, position - firstContractSize, orderId);
-					} else {
-						log.warn("下停利單失敗");
-						lineNotifyUtils.sendMessage("下停利單失敗");
-					}
+					placeStopProfitOrder();
 				}
 			}
 		}
 	}
 	
-	private void placeLevelOrders(double basePrice) {
-		for(int i = 1 ; i < orderLevel ; i++) {
+	private void placeLevelOrders(int startLevel, double basePrice) {
+		for(int i = startLevel ; i < orderLevel ; i++) {
 			basePrice = basePrice - (priceRange * Math.pow(2, i-1));
 			double qty = firstContractSize * Math.pow(2, i-1);
 			String orderId = sendOrder(BuySell.BUY, basePrice, qty);
@@ -212,12 +227,36 @@ public class GridStrategy extends AbstractStrategy {
 		}
 	}
 	
+	private void placeStopProfitOrder() {
+		String orderId = sendOrder(BuySell.SELL, targetPrice, position - firstContractSize);
+		if(orderId != null) {
+			stopProfitOrderId = orderId;
+			log.info("下停利單 {} {} {}", targetPrice, position - firstContractSize, orderId);
+		} else {
+			log.warn("下停利單失敗 {} {}", targetPrice, position - firstContractSize);
+			lineNotifyUtils.sendMessage("下停利單失敗");
+		}
+	}
+	
 	private String sendOrder(BuySell buySell, double price, double qty) {
 		return exchangeManager.sendOrder(strategyName, ExchangeManager.BTSE_EXCHANGE_NAME, userName, symbol, buySell, price, qty);
 	}
 	
 	private boolean cancelOrder(String orderId) {
 		return exchangeManager.cancelOrder(strategyName, ExchangeManager.BTSE_EXCHANGE_NAME, userName, symbol, orderId);
+	}
+	
+	private int getRemainOrderLevel(int remainQty) {
+		if(remainQty < firstContractSize) {
+			log.error("設定錯誤: RemainQty < firstContractSize");
+			return 0;
+		}
+		int level = 0;
+		while(remainQty > 0) {
+			level++;
+			remainQty -= firstContractSize * level;
+		}
+		return level;
 	}
 	
 	private double getTargetPrice(double price) {
