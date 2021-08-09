@@ -178,6 +178,7 @@ public class GridStrategy extends AbstractStrategy {
 					if(position == firstContractSize ) {
 						log.info("停利單完全成交");
 						lineNotifyUtils.sendMessage("停利單完全成交");
+						stopProfitOrderId = null;
 						// 重算成本
 						averagePrice = fill.getPrice();
 						// 重算目標價
@@ -186,9 +187,12 @@ public class GridStrategy extends AbstractStrategy {
 						cancelOrder(null);
 						// 鋪單
 						placeLevelOrders(1, fill.getPrice());
+						// 計算獲利
+						calcProfit(fill.getQty());
 					} else {
 						log.warn("停利單部分成交 {}, {}", fill.getPrice(), fill.getQty());
 						lineNotifyUtils.sendMessage("停利單部分成交");
+						calcProfit(fill.getQty());
 					}
 				} else {
 					// 一般單成交
@@ -285,6 +289,17 @@ public class GridStrategy extends AbstractStrategy {
 			log.error("unknown stop profit type: {}", stopProfitType);
 		}
 		return price;
+	}
+	
+	private void calcProfit(double qty) {
+		double profit = 0;
+		if(stopProfitType.equals("rate")) {
+			profit = (averagePrice - (averagePrice / 1.008)) * qty / 100;
+		} else if (stopProfitType.equals("fix")) {
+			profit = stopProfit * qty / 100;
+		}
+		lineNotifyUtils.sendMessage("獲利: " + profit);
+		log.info("獲利: {}", profit);
 	}
 
 	public static void main(String[] s) {
