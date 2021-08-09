@@ -229,13 +229,15 @@ public class GridStrategy extends AbstractStrategy {
 	}
 	
 	private void placeStopProfitOrder() {
-		String orderId = sendOrder(BuySell.SELL, targetPrice, position - firstContractSize);
-		if(orderId != null) {
-			stopProfitOrderId = orderId;
-			log.info("下停利單 {} {} {}", targetPrice, position - firstContractSize, orderId);
-		} else {
-			log.warn("下停利單失敗 {} {}", targetPrice, position - firstContractSize);
-			lineNotifyUtils.sendMessage("下停利單失敗");
+		if(position - firstContractSize > 0) {
+			String orderId = sendOrder(BuySell.SELL, targetPrice, position - firstContractSize);
+			if(orderId != null) {
+				stopProfitOrderId = orderId;
+				log.info("下停利單 {} {} {}", targetPrice, position - firstContractSize, orderId);
+			} else {
+				log.warn("下停利單失敗 {} {}", targetPrice, position - firstContractSize);
+				lineNotifyUtils.sendMessage("下停利單失敗");
+			}
 		}
 	}
 	
