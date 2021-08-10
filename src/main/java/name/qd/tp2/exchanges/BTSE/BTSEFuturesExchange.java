@@ -335,7 +335,7 @@ public class BTSEFuturesExchange extends AbstractExchange {
 		fill.setOrderId(orderId);
 		fill.setSymbol(node.get("symbol").asText());
 		fill.setPrice(node.get("price").asDouble());
-		fill.setQty(node.get("fillSize").asDouble());
+		fill.setQty(node.get("size").asDouble());
 
 		if (strategyName != null) {
 			fill.setUserName(userName);

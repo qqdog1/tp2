@@ -191,7 +191,7 @@ public class GridStrategy extends AbstractStrategy {
 						calcProfit(fill.getQty());
 					} else {
 						log.warn("停利單部分成交 {}, {}", fill.getPrice(), fill.getQty());
-						lineNotifyUtils.sendMessage("停利單部分成交");
+						lineNotifyUtils.sendMessage("停利單部分成交" + fill.getQty());
 						calcProfit(fill.getQty());
 					}
 				} else {
