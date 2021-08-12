@@ -66,8 +66,10 @@ public class GridStrategy extends AbstractStrategy {
 	}
 	
 	private void startWithRemain() {
+		log.info("有未平倉單接續策略 ");
 		position = Integer.parseInt(strategyConfig.getCustomizeSettings("remainQty"));
 		double remainFirstOrderPrice = Double.parseDouble(strategyConfig.getCustomizeSettings("remainFirstOrderPrice"));
+		log.info("remaining qty: {}, first remaining order price: {}", position, remainFirstOrderPrice);
 		averagePrice = calcCurrentAvgPrice(remainFirstOrderPrice);
 		
 		// 下停利
@@ -179,6 +181,8 @@ public class GridStrategy extends AbstractStrategy {
 						log.info("停利單完全成交");
 						lineNotifyUtils.sendMessage("停利單完全成交");
 						stopProfitOrderId = null;
+						// 計算獲利
+						calcProfit(fill.getQty(), fill.getPrice());
 						// 重算成本
 						averagePrice = fill.getPrice();
 						// 重算目標價
@@ -187,12 +191,10 @@ public class GridStrategy extends AbstractStrategy {
 						cancelOrder(null);
 						// 鋪單
 						placeLevelOrders(1, fill.getPrice());
-						// 計算獲利
-						calcProfit(fill.getQty());
 					} else {
 						log.warn("停利單部分成交 {}, {}", fill.getPrice(), fill.getQty());
 						lineNotifyUtils.sendMessage("停利單部分成交" + fill.getQty());
-						calcProfit(fill.getQty());
+						calcProfit(fill.getQty(), fill.getPrice());
 					}
 				} else {
 					// 一般單成交
@@ -219,15 +221,18 @@ public class GridStrategy extends AbstractStrategy {
 	}
 	
 	private void placeLevelOrders(int startLevel, double basePrice) {
-		for(int i = startLevel ; i < orderLevel ; i++) {
+		for(int i = 1 ; i < orderLevel ; i++) {
 			basePrice = basePrice - (priceRange * Math.pow(2, i-1));
 			double qty = firstContractSize * Math.pow(2, i-1);
-			String orderId = sendOrder(BuySell.BUY, basePrice, qty);
-			if(orderId != null) {
-				log.info("鋪單 {} {} {}", i, basePrice, qty);
-			} else {
-				log.error("鋪單失敗 {} {} {}", i, basePrice, qty);
-				lineNotifyUtils.sendMessage("鋪單失敗");
+			if(i == startLevel) {
+				String orderId = sendOrder(BuySell.BUY, basePrice, qty);
+				if(orderId != null) {
+					log.info("鋪單 {} {} {}", i, basePrice, qty);
+				} else {
+					log.error("鋪單失敗 {} {} {}", i, basePrice, qty);
+					lineNotifyUtils.sendMessage("鋪單失敗");
+				}
+				startLevel++;
 			}
 		}
 	}
@@ -293,13 +298,9 @@ public class GridStrategy extends AbstractStrategy {
 		return price;
 	}
 	
-	private void calcProfit(double qty) {
-		double profit = 0;
-		if(stopProfitType.equals("rate")) {
-			profit = (averagePrice - (averagePrice / 1.008)) * qty / 100;
-		} else if (stopProfitType.equals("fix")) {
-			profit = stopProfit * qty / 100;
-		}
+	private void calcProfit(double qty, double price) {
+		double priceDiff = price - averagePrice;
+		double profit = priceDiff * qty / 100;
 		lineNotifyUtils.sendMessage("獲利: " + profit);
 		log.info("獲利: {}", profit);
 	}
