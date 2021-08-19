@@ -15,13 +15,28 @@ import name.qd.tp2.strategies.config.JsonStrategyConfig;
 import name.qd.tp2.strategies.config.StrategyConfig;
 import name.qd.tp2.utils.LineNotifyUtils;
 
+/**
+	進場: 等比價量下跌吸貨
+		 EX: 
+		 設定第一單contract size = 10, price range = 10
+		 若第一單於3000吸貨10(contract size)張
+		 第二單將於2990(3000 - price range)吸貨 10張
+		 第三單將於2970(2990 - price range * 2)吸貨 20(contract size * 2)張
+		 ...
+	出場: 均價以上定值或定比例出貨
+		 EX:
+		 依照進場均價
+		 若設定定值出場 出場價 = 均價 + profit price
+		 若設定獲利趴數出場 出場價 = 均價 * (1 + profit rate)
+	其他: 
+ */
 public class GridStrategy extends AbstractStrategy {
 	private Logger log = LoggerFactory.getLogger(GridStrategy.class);
 	private LineNotifyUtils lineNotifyUtils;
 	// 與交易所溝通用
 	private ExchangeManager exchangeManager = ExchangeManager.getInstance();
 	
-	private String strategyName = "Grid1";
+	private String strategyName = "[等比網格]";
 	private String userName = "shawn";
 
 	// 自己設定一些策略內要用的變數
@@ -106,7 +121,7 @@ public class GridStrategy extends AbstractStrategy {
 			// cancel order
 			if(!cancelOrder(firstOrderId)) {
 				log.error("刪除第一筆單失敗 orderId:{}", firstOrderId);
-				lineNotifyUtils.sendMessage("刪除第一單失敗");
+				lineNotifyUtils.sendMessage(strategyName + "刪除第一單失敗");
 			} else {
 				log.debug("刪除未成交第一單 {}", firstOrderId);
 				firstOrderId = null;
@@ -163,7 +178,7 @@ public class GridStrategy extends AbstractStrategy {
 				position += fill.getQty();
 				if(position == firstContractSize) {
 					log.info("第一單完全成交");
-					lineNotifyUtils.sendMessage("第一單完全成交");
+					lineNotifyUtils.sendMessage(strategyName + "第一單完全成交");
 					// 更新目標價
 					targetPrice = getTargetPrice(averagePrice);
 					// 完全成交
@@ -171,7 +186,7 @@ public class GridStrategy extends AbstractStrategy {
 					placeLevelOrders(1, averagePrice);
 				} else {
 					log.warn("第一單部分成交 {} {}", fill.getPrice(), fill.getQty());
-					lineNotifyUtils.sendMessage("第一單部分成交");
+					lineNotifyUtils.sendMessage(strategyName + "第一單部分成交");
 				}
 			} else {
 				if(fill.getOrderId().equals(stopProfitOrderId)) {
@@ -179,7 +194,7 @@ public class GridStrategy extends AbstractStrategy {
 					position -= fill.getQty();
 					if(position == firstContractSize ) {
 						log.info("停利單完全成交");
-						lineNotifyUtils.sendMessage("停利單完全成交");
+						lineNotifyUtils.sendMessage(strategyName + "停利單完全成交");
 						stopProfitOrderId = null;
 						// 計算獲利
 						calcProfit(fill.getQty(), fill.getPrice());
@@ -193,7 +208,7 @@ public class GridStrategy extends AbstractStrategy {
 						placeLevelOrders(1, fill.getPrice());
 					} else {
 						log.warn("停利單部分成交 {}, {}", fill.getPrice(), fill.getQty());
-						lineNotifyUtils.sendMessage("停利單部分成交" + fill.getQty());
+						lineNotifyUtils.sendMessage(strategyName + "停利單部分成交" + fill.getQty());
 						calcProfit(fill.getQty(), fill.getPrice());
 					}
 				} else {
@@ -206,7 +221,7 @@ public class GridStrategy extends AbstractStrategy {
 					if(stopProfitOrderId != null) {
 						if(!cancelOrder(stopProfitOrderId)) {
 							log.error("清除舊的停利單失敗 orderId:{}", stopProfitOrderId);
-							lineNotifyUtils.sendMessage("清除舊的停利單失敗");
+							lineNotifyUtils.sendMessage(strategyName + "清除舊的停利單失敗");
 						} else {
 							stopProfitOrderId = null;
 							log.info("清除舊的停利單");
@@ -230,7 +245,7 @@ public class GridStrategy extends AbstractStrategy {
 					log.info("鋪單 {} {} {}", i, basePrice, qty);
 				} else {
 					log.error("鋪單失敗 {} {} {}", i, basePrice, qty);
-					lineNotifyUtils.sendMessage("鋪單失敗");
+					lineNotifyUtils.sendMessage(strategyName + "鋪單失敗");
 				}
 				startLevel++;
 			}
@@ -245,7 +260,7 @@ public class GridStrategy extends AbstractStrategy {
 				log.info("下停利單 {} {} {}", targetPrice, position - firstContractSize, orderId);
 			} else {
 				log.warn("下停利單失敗 {} {}", targetPrice, position - firstContractSize);
-				lineNotifyUtils.sendMessage("下停利單失敗");
+				lineNotifyUtils.sendMessage(strategyName + "下停利單失敗");
 			}
 		}
 	}
@@ -301,7 +316,7 @@ public class GridStrategy extends AbstractStrategy {
 	private void calcProfit(double qty, double price) {
 		double priceDiff = price - averagePrice;
 		double profit = priceDiff * qty / 100;
-		lineNotifyUtils.sendMessage("獲利: " + profit);
+		lineNotifyUtils.sendMessage(strategyName + "獲利: " + profit);
 		log.info("獲利: {}", profit);
 	}
 
