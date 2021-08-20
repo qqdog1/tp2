@@ -109,6 +109,10 @@ public class Grid2Strategy extends AbstractStrategy {
 				Integer price = mapOrderIdToPrice.remove(orderId);
 				price = getStopProfitPrice(price);
 				String stopOrderId = sendOrder(BuySell.SELL, price, orderSize);
+				if(stopOrderId == null) {
+					log.error("下停利單失敗");
+					lineNotifyUtils.sendMessage(strategyName + " 下停利單失敗: " + price);
+				}
 				mapStopProfitOrderId.put(stopOrderId, price);
 				
 				log.info("fill: {} {} {}", fill.getBuySell(), fill.getPrice(), fill.getQty());
@@ -168,7 +172,7 @@ public class Grid2Strategy extends AbstractStrategy {
 		ZonedDateTime zonedDateTime = ZonedDateTime.now();
 		int minute = zonedDateTime.getMinute();
 		if(notifyMinute != minute && minute % reportMinute == 0) {
-			lineNotifyUtils.sendMessage(strategyName + "現在持倉: " + position + " 平均成本: " + averagePrice);
+			lineNotifyUtils.sendMessage(strategyName + "現在持倉: " + position + " ,cost: " + cost + " ,平均成本: " + averagePrice);
 			notifyMinute = minute;
 		}
 	}
@@ -216,10 +220,12 @@ public class Grid2Strategy extends AbstractStrategy {
 	}
 	
 	private String sendOrder(BuySell buySell, double price, double qty) {
+		log.info("send order: {} {} {}", buySell, price, qty);
 		return exchangeManager.sendOrder(strategyName, ExchangeManager.BTSE_EXCHANGE_NAME, userName, symbol, buySell, price, qty);
 	}
 	
 	private boolean cancelOrder(String orderId) {
+		log.info("cancel order: {}", orderId);
 		return exchangeManager.cancelOrder(strategyName, ExchangeManager.BTSE_EXCHANGE_NAME, userName, symbol, orderId);
 	}
 	
