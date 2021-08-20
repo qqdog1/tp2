@@ -2,10 +2,13 @@ package name.qd.tp2.myImpl;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.ZonedDateTime;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,7 +46,6 @@ public class Grid2Strategy extends AbstractStrategy {
 	private int position = 0;
 	private double averagePrice = 0;
 	private double cost = 0;
-	private double currentFees = 0;
 
 	// 這個策略要用到的值 全部都設定在config
 	private int priceRange;
@@ -51,15 +53,16 @@ public class Grid2Strategy extends AbstractStrategy {
 	private String stopProfitType;
 	private double stopProfit;
 	private double fee;
-	private double tickSize;
 	private int orderLevel;
 	private String lineNotify;
-	private double orderStartPrice;
 	private int maxContractSize;
+	private int reportMinute;
 	
-	private Map<Integer, String> mapPriceToOrderId = new HashMap<>();
+	private boolean pause = false;
+	
 	private Map<String, Integer> mapOrderIdToPrice = new HashMap<>();
-	private Map<String, Integer> mapStopProfitOrderIdToPrice = new HashMap<>();
+	private Set<Integer> setOpenPrice = new HashSet<>();
+	private Map<String, Integer> mapStopProfitOrderId = new HashMap<>();
 
 	public Grid2Strategy(StrategyConfig strategyConfig) {
 		super(strategyConfig);
@@ -70,12 +73,11 @@ public class Grid2Strategy extends AbstractStrategy {
 		stopProfitType = strategyConfig.getCustomizeSettings("stopProfitType");
 		stopProfit = Double.parseDouble(strategyConfig.getCustomizeSettings("stopProfit"));
 		fee = Double.parseDouble(strategyConfig.getCustomizeSettings("fee"));
-		tickSize = Double.parseDouble(strategyConfig.getCustomizeSettings("tickSize"));
 		orderLevel = Integer.parseInt(strategyConfig.getCustomizeSettings("orderLevel"));
 		lineNotify = strategyConfig.getCustomizeSettings("lineNotify");
-		orderStartPrice = Double.parseDouble(strategyConfig.getCustomizeSettings("orderStartPrice"));
 		maxContractSize = Integer.parseInt(strategyConfig.getCustomizeSettings("maxContractSize"));
 		lineNotifyUtils = new LineNotifyUtils(lineNotify);
+		reportMinute = Integer.parseInt(strategyConfig.getCustomizeSettings("reportMinute"));
 	}
 	
 	@Override
@@ -85,11 +87,15 @@ public class Grid2Strategy extends AbstractStrategy {
 		checkFill();
 		
 		// 2. 鋪單
-		placeOrder();
+		if(!pause) {
+			placeOrder();
+		}
 		
-		// 3. 整點回報
+		// 3. 定時回報
+		report();
 		
 		// 4. 滿倉回報
+		checkPosition();
 	}
 	
 	private void checkFill() {
@@ -97,12 +103,35 @@ public class Grid2Strategy extends AbstractStrategy {
 		for(Fill fill : lstFill) {
 			String orderId = fill.getOrderId();
 			if(mapOrderIdToPrice.containsKey(orderId)) {
-				// 開倉單成交
-			} else if(mapStopProfitOrderIdToPrice.containsKey(orderId)) {
+				// 開倉單成交 下停利單
+				Integer price = mapOrderIdToPrice.remove(orderId);
+				price = getStopProfitPrice(price);
+				String stopOrderId = sendOrder(BuySell.SELL, price, orderSize);
+				mapStopProfitOrderId.put(stopOrderId, price);
 				
+				// 算均價
+				calcAvgPrice(fill);
+			} else if(mapStopProfitOrderId.containsKey(orderId)) {
+				// 停利單成交
+				Integer price = mapStopProfitOrderId.remove(orderId);
+				setOpenPrice.remove(price - (int) stopProfit);
+				// 算均價
+				calcAvgPrice(fill);
 			} else {
 				log.error("未知成交: {}", orderId);
 			}
+		}
+	}
+	
+	private int getStopProfitPrice(int price) {
+		// 只能用fix
+		if("fix".equals(stopProfitType)) {
+			return price + (int) stopProfit;
+//		} else if("rate".equals(stopProfitType)) {
+//			return (int) (price * stopProfit);
+		} else {
+			log.error("未知停利方式...");
+			return 0;
 		}
 	}
 	
@@ -110,14 +139,67 @@ public class Grid2Strategy extends AbstractStrategy {
 		Orderbook orderbook = exchangeManager.getOrderbook(ExchangeManager.BTSE_EXCHANGE_NAME, symbol);
 		if(orderbook == null) return;
 		
-		double orderPrice = BigDecimal.valueOf(orderbook.getBidTopPrice(1)[0]).setScale(0, RoundingMode.DOWN).doubleValue();
-
+		int orderPrice = BigDecimal.valueOf(orderbook.getBidTopPrice(1)[0]).setScale(0, RoundingMode.DOWN).intValue();
+		orderPrice -= stopProfit;
+		
 		for(int i = 0 ; i < orderLevel ;) {
-			String orderId = sendOrder(BuySell.BUY, orderPrice - i, orderSize);
-			if(orderId != null) {
-				mapOrderIdToPrice.put(orderId, (int) orderPrice - i);
-				i++;
+			int price = orderPrice - (i * priceRange);
+			
+			if(!setOpenPrice.contains(price)) {
+				String orderId = sendOrder(BuySell.BUY, price, orderSize);
+				if(orderId != null) {
+					mapOrderIdToPrice.put(orderId, (int) price);
+					setOpenPrice.add(price);
+					i++;
+				} 
 			}
+		}
+	}
+	
+	private void report() {
+		ZonedDateTime zonedDateTime = ZonedDateTime.now();
+		int minute = zonedDateTime.getMinute();
+		if(minute % reportMinute == 0) {
+			lineNotifyUtils.sendMessage(strategyName + "現在持倉: " + position + " 平均成本: " + averagePrice);
+		}
+	}
+	
+	private void checkPosition() {
+		if(pause) {
+			if(position < maxContractSize) {
+				pause = false;
+			}
+		} else {
+			if(position >= maxContractSize) {
+				lineNotifyUtils.sendMessage(strategyName + "爆倉中, 注意策略狀態");
+				cancelAllOpenOrder();
+				pause = true;
+			}
+		}
+	}
+	
+	private void cancelAllOpenOrder() {
+		for(String orderId : mapOrderIdToPrice.keySet()) {
+			if(cancelOrder(orderId)) {
+				Integer price = mapOrderIdToPrice.remove(orderId);
+				setOpenPrice.remove(price);
+			} else {
+				log.error("刪單失敗: " + orderId);
+			}
+		}
+	}
+	
+	private void calcAvgPrice(Fill fill) {
+		if(BuySell.BUY == fill.getBuySell()) {
+			position += fill.getQty();
+			double feeCost = fill.getQty() * fill.getPrice() * fee;
+			cost = cost + (fill.getQty() * fill.getPrice()) + feeCost;
+			averagePrice = cost / position;
+		} else {
+			position -= fill.getQty();
+			double feeCost = fill.getQty() * fill.getPrice() * fee;
+			cost = cost - (fill.getQty() * fill.getPrice()) + feeCost;
+			averagePrice = cost / position;
 		}
 	}
 	
@@ -128,13 +210,13 @@ public class Grid2Strategy extends AbstractStrategy {
 	private boolean cancelOrder(String orderId) {
 		return exchangeManager.cancelOrder(strategyName, ExchangeManager.BTSE_EXCHANGE_NAME, userName, symbol, orderId);
 	}
-
+	
 	public static void main(String[] s) {
 		Properties prop = System.getProperties();
 		prop.setProperty("log4j.configurationFile", "./config/log4j2.xml");
 
 		try {
-			String configPath = "./config/grid2.json";
+			String configPath = "./config/grid2testnet.json";
 			Grid2Strategy strategy = new Grid2Strategy(new JsonStrategyConfig(configPath));
 			strategy.start();
 		} catch (Exception e) {
