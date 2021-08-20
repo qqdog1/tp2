@@ -234,7 +234,7 @@ public class Grid2Strategy extends AbstractStrategy {
 		prop.setProperty("log4j.configurationFile", "./config/log4j2.xml");
 
 		try {
-			String configPath = "./config/grid2testnet.json";
+			String configPath = "./config/grid2.json";
 			Grid2Strategy strategy = new Grid2Strategy(new JsonStrategyConfig(configPath));
 			strategy.start();
 		} catch (Exception e) {
