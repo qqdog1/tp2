@@ -57,6 +57,7 @@ public class Grid2Strategy extends AbstractStrategy {
 	private String lineNotify;
 	private int maxContractSize;
 	private int reportMinute;
+	private int notifyMinute = -1;
 	
 	private boolean pause = false;
 	
@@ -144,7 +145,7 @@ public class Grid2Strategy extends AbstractStrategy {
 		Orderbook orderbook = exchangeManager.getOrderbook(ExchangeManager.BTSE_EXCHANGE_NAME, symbol);
 		if(orderbook == null) return;
 		
-		int orderPrice = BigDecimal.valueOf(orderbook.getBidTopPrice(1)[0]).setScale(0, RoundingMode.DOWN).intValue();
+		int orderPrice = BigDecimal.valueOf(orderbook.getAskTopPrice(1)[0]).setScale(0, RoundingMode.DOWN).intValue();
 		orderPrice -= stopProfit;
 		
 		for(int i = 0 ; i < orderLevel ;) {
@@ -157,6 +158,8 @@ public class Grid2Strategy extends AbstractStrategy {
 					setOpenPrice.add(price);
 					i++;
 				} 
+			} else {
+				i++;
 			}
 		}
 	}
@@ -164,8 +167,9 @@ public class Grid2Strategy extends AbstractStrategy {
 	private void report() {
 		ZonedDateTime zonedDateTime = ZonedDateTime.now();
 		int minute = zonedDateTime.getMinute();
-		if(minute % reportMinute == 0) {
+		if(notifyMinute != minute && minute % reportMinute == 0) {
 			lineNotifyUtils.sendMessage(strategyName + "現在持倉: " + position + " 平均成本: " + averagePrice);
+			notifyMinute = minute;
 		}
 	}
 	
@@ -186,12 +190,14 @@ public class Grid2Strategy extends AbstractStrategy {
 	private void cancelAllOpenOrder() {
 		for(String orderId : mapOrderIdToPrice.keySet()) {
 			if(cancelOrder(orderId)) {
-				Integer price = mapOrderIdToPrice.remove(orderId);
+				Integer price = mapOrderIdToPrice.get(orderId);
 				setOpenPrice.remove(price);
 			} else {
 				log.error("刪單失敗: " + orderId);
+				lineNotifyUtils.sendMessage("爆倉刪單失敗");
 			}
 		}
+		mapOrderIdToPrice.clear();
 	}
 	
 	private void calcAvgPrice(Fill fill) {
