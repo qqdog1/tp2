@@ -43,11 +43,6 @@ import okhttp3.WebSocket;
 import okhttp3.WebSocketListener;
 
 public class BTSEFuturesExchange extends AbstractExchange {
-	private static String REST_URL = "https://api.btse.com/futures/";
-	private static String WS_URL = "wss://ws.btse.com/ws/futures";
-//	private static String REST_URL = "https://testapi.btse.io/futures";
-//	private static String WS_URL = "wss://testws.btse.io/ws/futures";
-
 	private Logger log = LoggerFactory.getLogger(BTSEFuturesExchange.class);
 	private final ExecutorService executor = Executors.newSingleThreadExecutor();
 	private final ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
@@ -65,10 +60,10 @@ public class BTSEFuturesExchange extends AbstractExchange {
 	private Map<Integer, List<Fill>> mapUnknownFill = new HashMap<>();
 
 	private MediaType MEDIA_TYPE_JSON = MediaType.parse("application/json; charset=utf-8");
-
-	public BTSEFuturesExchange() {
-		super(REST_URL, WS_URL);
-
+	
+	public BTSEFuturesExchange(String restUrl, String wsUrl) {
+		super(restUrl, wsUrl);
+		
 		executor.execute(channelMessageHandler);
 		scheduledExecutorService.scheduleAtFixedRate(new BTSERunner(), 0, 1, TimeUnit.SECONDS);
 		if (webSocket == null)
@@ -436,17 +431,5 @@ public class BTSEFuturesExchange extends AbstractExchange {
 				log.error("Parse websocket message to Json format failed. {}", text, e);
 			}
 		}
-	}
-
-	public static void main(String[] s) {
-		Exchange exchange = new BTSEFuturesExchange();
-		exchange.subscribe("ETHPFC");
-		try {
-			Thread.sleep(3000);
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		exchange.unsubscribe("ETHPFC");
 	}
 }

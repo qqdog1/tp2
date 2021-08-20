@@ -29,10 +29,12 @@ public class ExchangeManager {
 		return instance;
 	}
 	
-	public void initExchange(String exchange) {
+	public void initExchange(String exchange, String env) {
 		if(!mapExchange.containsKey(exchange)) {
 			if(BTSE_EXCHANGE_NAME.equals(exchange)) {
-				mapExchange.put(BTSE_EXCHANGE_NAME, new BTSEFuturesExchange());
+				mapExchange.put(BTSE_EXCHANGE_NAME, 
+						new BTSEFuturesExchange(ExchangeSettings.getExchangeRestUrlByEnv(exchange, env),
+												ExchangeSettings.getExchangeWSUrlByEnv(exchange, env)));
 			} else {
 				log.error("exchange not implement yet, {}", exchange);
 			}

@@ -12,9 +12,18 @@ public abstract class AbstractStrategyConfig implements StrategyConfig {
 	private TradingPair tradingPair = new TradingPair();
 	private Map<String, Map<String, ApiKeySecret>> mapApiKeys = new HashMap<>();
 	private Map<String, String> mapCustomize = new HashMap<>();
+	private Map<String, String> mapExchangeEnv = new HashMap<>();
 	
 	public Set<String> getAllExchange() {
 		return tradingPair.getAllExchange();
+	}
+	
+	public String getExchangeEvn(String exchange) {
+		return mapExchangeEnv.get(exchange);
+	}
+	
+	public void setExchangeEvn(String exchange, String env) {
+		mapExchangeEnv.put(exchange, env);
 	}
 	
 	public Set<String> getAllSymbols(String exchange) {

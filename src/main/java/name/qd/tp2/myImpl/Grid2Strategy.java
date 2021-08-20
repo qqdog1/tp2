@@ -99,6 +99,7 @@ public class Grid2Strategy extends AbstractStrategy {
 	}
 	
 	private void checkFill() {
+		// TODO partial fill
 		List<Fill> lstFill = exchangeManager.getFill(strategyName, ExchangeManager.BTSE_EXCHANGE_NAME);
 		for(Fill fill : lstFill) {
 			String orderId = fill.getOrderId();
@@ -109,12 +110,16 @@ public class Grid2Strategy extends AbstractStrategy {
 				String stopOrderId = sendOrder(BuySell.SELL, price, orderSize);
 				mapStopProfitOrderId.put(stopOrderId, price);
 				
+				log.info("fill: {} {} {}", fill.getBuySell(), fill.getPrice(), fill.getQty());
 				// 算均價
 				calcAvgPrice(fill);
 			} else if(mapStopProfitOrderId.containsKey(orderId)) {
 				// 停利單成交
 				Integer price = mapStopProfitOrderId.remove(orderId);
+				// TODO 目前回算open order價格是fix方式
 				setOpenPrice.remove(price - (int) stopProfit);
+				
+				log.info("fill: {} {} {}", fill.getBuySell(), fill.getPrice(), fill.getQty());
 				// 算均價
 				calcAvgPrice(fill);
 			} else {
@@ -124,7 +129,7 @@ public class Grid2Strategy extends AbstractStrategy {
 	}
 	
 	private int getStopProfitPrice(int price) {
-		// 只能用fix
+		// TODO 目前只能用fix
 		if("fix".equals(stopProfitType)) {
 			return price + (int) stopProfit;
 //		} else if("rate".equals(stopProfitType)) {
@@ -201,6 +206,7 @@ public class Grid2Strategy extends AbstractStrategy {
 			cost = cost - (fill.getQty() * fill.getPrice()) + feeCost;
 			averagePrice = cost / position;
 		}
+		log.info("position: {}, cost: {}, avgPrice: {}", position, cost, averagePrice);
 	}
 	
 	private String sendOrder(BuySell buySell, double price, double qty) {
