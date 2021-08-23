@@ -115,7 +115,7 @@ public class Grid2Strategy extends AbstractStrategy {
 				}
 				mapStopProfitOrderId.put(stopOrderId, price);
 				
-				log.info("fill: {} {} {}", fill.getBuySell(), fill.getPrice(), fill.getQty());
+				log.info("開倉單成交: {} {} {}, 下對應停利: {}", fill.getBuySell(), fill.getPrice(), fill.getQty(), price);
 				// 算均價
 				calcAvgPrice(fill);
 			} else if(mapStopProfitOrderId.containsKey(orderId)) {
@@ -124,7 +124,7 @@ public class Grid2Strategy extends AbstractStrategy {
 				// TODO 目前回算open order價格是fix方式
 				setOpenPrice.remove(price - (int) stopProfit);
 				
-				log.info("fill: {} {} {}", fill.getBuySell(), fill.getPrice(), fill.getQty());
+				log.info("停利單成交: {} {} {}, 對應開倉應於: {}", fill.getBuySell(), fill.getPrice(), fill.getQty(), price - stopProfit);
 				// 算均價
 				calcAvgPrice(fill);
 			} else {
@@ -148,8 +148,8 @@ public class Grid2Strategy extends AbstractStrategy {
 	private void placeOrder() {
 		Orderbook orderbook = exchangeManager.getOrderbook(ExchangeManager.BTSE_EXCHANGE_NAME, symbol);
 		if(orderbook == null) return;
-		
-		int orderPrice = BigDecimal.valueOf(orderbook.getAskTopPrice(1)[0]).setScale(0, RoundingMode.DOWN).intValue();
+
+		int orderPrice = BigDecimal.valueOf(orderbook.getBidTopPrice(1)[0]).setScale(0, RoundingMode.DOWN).intValue();
 		orderPrice -= orderPrice % priceRange;
 		
 		for(int i = 0 ; i < orderLevel ;) {

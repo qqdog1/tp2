@@ -1,7 +1,9 @@
 package name.qd.tp2.myImpl;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
+import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,6 +49,7 @@ public class GridStrategy extends AbstractStrategy {
 	private double averagePrice = 0;
 	private double targetPrice = 0;
 	private double currentFees = 0;
+	private Set<String> setOrderId = new HashSet<>();
 
 	// 這個策略要用到的值 全部都設定在config
 	private int priceRange;
@@ -243,6 +246,7 @@ public class GridStrategy extends AbstractStrategy {
 				String orderId = sendOrder(BuySell.BUY, basePrice, qty);
 				if(orderId != null) {
 					log.info("鋪單 {} {} {}", i, basePrice, qty);
+					setOrderId.add(orderId);
 				} else {
 					log.error("鋪單失敗 {} {} {}", i, basePrice, qty);
 					lineNotifyUtils.sendMessage(strategyName + "鋪單失敗");
@@ -270,6 +274,12 @@ public class GridStrategy extends AbstractStrategy {
 	}
 	
 	private boolean cancelOrder(String orderId) {
+		if(orderId == null) {
+			for(String id : setOrderId) {
+				exchangeManager.cancelOrder(strategyName, ExchangeManager.BTSE_EXCHANGE_NAME, userName, symbol, id);
+			}
+			setOrderId.clear();
+		}
 		return exchangeManager.cancelOrder(strategyName, ExchangeManager.BTSE_EXCHANGE_NAME, userName, symbol, orderId);
 	}
 	
