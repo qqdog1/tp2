@@ -4,8 +4,8 @@ public class LiquidationPrice {
 
 	public static void main(String[] args) {
 		double balance = 5200;
-		double currentPrice = 3200;
-		double minMarketPrice = 1400;
+		double currentPrice = 3300;
+		double minMarketPrice = 0;
 		double priceRange = 3;
 		double contractSize = 1;
 		
@@ -21,6 +21,7 @@ public class LiquidationPrice {
 			if(avgPrice - (balance / position * 100) > price) {
 				System.out.println("liquidation price: " + (avgPrice - (balance / position * 100)) + 
 						" , price: " + price + " , qty: " + position);
+				break;
 			}
 		}
 	}

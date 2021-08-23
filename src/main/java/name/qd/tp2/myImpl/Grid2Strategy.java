@@ -150,7 +150,7 @@ public class Grid2Strategy extends AbstractStrategy {
 		if(orderbook == null) return;
 		
 		int orderPrice = BigDecimal.valueOf(orderbook.getAskTopPrice(1)[0]).setScale(0, RoundingMode.DOWN).intValue();
-		orderPrice -= stopProfit;
+		orderPrice -= orderPrice % priceRange;
 		
 		for(int i = 0 ; i < orderLevel ;) {
 			int price = orderPrice - (i * priceRange);
@@ -235,6 +235,7 @@ public class Grid2Strategy extends AbstractStrategy {
 
 		try {
 			String configPath = "./config/grid2.json";
+//			String configPath = "./config/grid2testnet.json";
 			Grid2Strategy strategy = new Grid2Strategy(new JsonStrategyConfig(configPath));
 			strategy.start();
 		} catch (Exception e) {
