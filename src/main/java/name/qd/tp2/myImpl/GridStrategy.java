@@ -281,8 +281,10 @@ public class GridStrategy extends AbstractStrategy {
 				}
 			}
 			setOrderId.clear();
+			return true;
+		} else {
+			return exchangeManager.cancelOrder(strategyName, ExchangeManager.BTSE_EXCHANGE_NAME, userName, symbol, orderId);
 		}
-		return exchangeManager.cancelOrder(strategyName, ExchangeManager.BTSE_EXCHANGE_NAME, userName, symbol, orderId);
 	}
 	
 	private int getRemainOrderLevel(int remainQty) {
