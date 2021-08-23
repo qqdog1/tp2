@@ -276,7 +276,9 @@ public class GridStrategy extends AbstractStrategy {
 	private boolean cancelOrder(String orderId) {
 		if(orderId == null) {
 			for(String id : setOrderId) {
-				exchangeManager.cancelOrder(strategyName, ExchangeManager.BTSE_EXCHANGE_NAME, userName, symbol, id);
+				if(id != null) {
+					exchangeManager.cancelOrder(strategyName, ExchangeManager.BTSE_EXCHANGE_NAME, userName, symbol, id);
+				}
 			}
 			setOrderId.clear();
 		}
