@@ -135,6 +135,7 @@ public class Grid2Strategy extends AbstractStrategy {
 	
 	private int getStopProfitPrice(int price) {
 		// TODO 目前只能用fix
+		// TODO 要加入手續費計算 不然價格大fix加上去可能還cover不掉手續費
 		if("fix".equals(stopProfitType)) {
 			return price + (int) stopProfit;
 //		} else if("rate".equals(stopProfitType)) {
