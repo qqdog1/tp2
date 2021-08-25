@@ -46,6 +46,9 @@ public class Grid2Strategy extends AbstractStrategy {
 	private int position = 0;
 	private double averagePrice = 0;
 	private double cost = 0;
+	
+	private int buyCount = 0;
+	private int sellCount = 0;
 
 	// 這個策略要用到的值 全部都設定在config
 	private int priceRange;
@@ -116,6 +119,7 @@ public class Grid2Strategy extends AbstractStrategy {
 				mapStopProfitOrderId.put(stopOrderId, price);
 				
 				log.info("開倉單成交: {} {} {}, 下對應停利: {}", fill.getBuySell(), fill.getPrice(), fill.getQty(), price);
+				buyCount++;
 				// 算均價
 				calcAvgPrice(fill);
 			} else if(mapStopProfitOrderId.containsKey(orderId)) {
@@ -125,6 +129,7 @@ public class Grid2Strategy extends AbstractStrategy {
 				setOpenPrice.remove(price - (int) stopProfit);
 				
 				log.info("停利單成交: {} {} {}, 對應開倉應於: {}", fill.getBuySell(), fill.getPrice(), fill.getQty(), price - stopProfit);
+				sellCount++;
 				// 算均價
 				calcAvgPrice(fill);
 			} else {
@@ -173,8 +178,10 @@ public class Grid2Strategy extends AbstractStrategy {
 		ZonedDateTime zonedDateTime = ZonedDateTime.now();
 		int minute = zonedDateTime.getMinute();
 		if(notifyMinute != minute && minute % reportMinute == 0) {
-			lineNotifyUtils.sendMessage(strategyName + "現在持倉: " + position + " ,cost: " + cost + " ,平均成本: " + averagePrice);
+			lineNotifyUtils.sendMessage(strategyName + "現在持倉: " + position + " ,cost: " + cost + " ,平均成本: " + averagePrice + ", 區間買量: " + buyCount + ", 區間賣量: " + sellCount);
 			notifyMinute = minute;
+			buyCount = 0;
+			sellCount = 0;
 		}
 	}
 	
