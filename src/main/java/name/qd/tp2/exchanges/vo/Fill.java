@@ -9,6 +9,7 @@ public class Fill {
 	private BuySell buySell;
 	private double price;
 	private double qty;
+	private long timestamp;
 	public String getUserName() {
 		return userName;
 	}
@@ -44,5 +45,11 @@ public class Fill {
 	}
 	public void setBuySell(BuySell buySell) {
 		this.buySell = buySell;
+	}
+	public long getTimestamp() {
+		return timestamp;
+	}
+	public void setTimestamp(long timestamp) {
+		this.timestamp = timestamp;
 	}
 }

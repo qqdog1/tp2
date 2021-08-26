@@ -7,6 +7,7 @@ import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -22,14 +23,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import name.qd.tp2.constants.BuySell;
 import name.qd.tp2.exchanges.AbstractExchange;
 import name.qd.tp2.exchanges.ChannelMessageHandler;
-import name.qd.tp2.exchanges.Exchange;
 import name.qd.tp2.exchanges.vo.ApiKeySecret;
 import name.qd.tp2.exchanges.vo.Fill;
 import name.qd.tp2.exchanges.vo.Orderbook;
@@ -65,7 +67,8 @@ public class BTSEFuturesExchange extends AbstractExchange {
 		super(restUrl, wsUrl);
 		
 		executor.execute(channelMessageHandler);
-		scheduledExecutorService.scheduleAtFixedRate(new BTSERunner(), 0, 1, TimeUnit.SECONDS);
+		scheduledExecutorService.scheduleAtFixedRate(new UnknownFillRunner(), 0, 1, TimeUnit.SECONDS);
+		scheduledExecutorService.scheduleAtFixedRate(new QueryFillRunner(), 60, 60, TimeUnit.SECONDS);
 		if (webSocket == null)
 			initWebSocket(webSocketListener);
 	}
@@ -105,9 +108,18 @@ public class BTSEFuturesExchange extends AbstractExchange {
 		webSocket.send(objectNode.toString());
 	}
 
-	private Request.Builder createRequestBuilder(String path) {
+	private Request.Builder createRequestBuilder(String path, ObjectNode objectNode) {
 		HttpUrl.Builder urlBuilder = httpUrl.newBuilder();
 		urlBuilder.addPathSegments(path);
+		
+		if(objectNode != null) {
+			Iterator<String> iterator = objectNode.fieldNames();
+			while(iterator.hasNext()) {
+				String field = iterator.next();
+				urlBuilder.addEncodedQueryParameter(field, objectNode.get(field).asText());
+			}
+		}
+		
 		return new Request.Builder().url(urlBuilder.build().url().toString());
 	}
 
@@ -162,6 +174,45 @@ public class BTSEFuturesExchange extends AbstractExchange {
 		objectNode.put("type", "MARKET");
 		return sendOrder(strategyName, userName, objectNode);
 	}
+	
+	@Override
+	public List<Fill> getFillHistory(String userName, String symbol, long startTime, long endTime) {
+		ObjectNode objectNode = JsonUtils.objectMapper.createObjectNode();
+		objectNode.put("count", 100);
+		objectNode.put("endTime", endTime);
+		objectNode.put("startTime", startTime);
+		objectNode.put("symbol", symbol);
+		
+		ApiKeySecret apiKeySecret = getApiKeySecret(userName);
+		String nonce = String.valueOf(System.currentTimeMillis());
+		String sign = null;
+		try {
+			sign = getSign(userName, "/api/v2.1/user/trade_history", nonce, "");
+		} catch (UnsupportedEncodingException e) {
+			log.error("get sign failed when sending order.", e);
+		}
+		
+		Request.Builder requestBuilder = createRequestBuilder("/api/v2.1/user/trade_history", objectNode);
+		requestBuilder.addHeader("btse-nonce", nonce);
+		requestBuilder.addHeader("btse-api", apiKeySecret.getApiKey());
+		requestBuilder.addHeader("btse-sign", sign);
+		
+		Request request = requestBuilder.build();
+		
+		List<Fill> lst = null;
+		try {
+			String responseString = sendRequest(request);
+			
+			JsonNode node = JsonUtils.objectMapper.readTree(responseString);
+			lst = parseToFill(node);
+		} catch (JsonProcessingException e) {
+			log.error("parse query fill history result to JsonNode failed.", e);
+		} catch (IOException e) {
+			log.error("send query fill history failed.", e);
+		}
+		
+		return lst;
+	}
 
 	private String sendOrder(String strategyName, String userName, ObjectNode objectNode) {
 		ApiKeySecret apiKeySecret = getApiKeySecret(userName);
@@ -172,7 +223,7 @@ public class BTSEFuturesExchange extends AbstractExchange {
 		} catch (UnsupportedEncodingException e) {
 			log.error("get sign failed when sending order.", e);
 		}
-		Request.Builder requestBuilderOrder = createRequestBuilder("api/v2.1/order");
+		Request.Builder requestBuilderOrder = createRequestBuilder("api/v2.1/order", null);
 		requestBuilderOrder.addHeader("btse-nonce", nonce);
 		requestBuilderOrder.addHeader("btse-api", apiKeySecret.getApiKey());
 		requestBuilderOrder.addHeader("btse-sign", sign);
@@ -260,7 +311,7 @@ public class BTSEFuturesExchange extends AbstractExchange {
 			log.error("get sign failed when query balance.", e);
 		}
 
-		Request.Builder requestBuilderBalance = createRequestBuilder("api/v2.1/user/wallet");
+		Request.Builder requestBuilderBalance = createRequestBuilder("api/v2.1/user/wallet", null);
 		requestBuilderBalance.addHeader("btse-nonce", nonce);
 		requestBuilderBalance.addHeader("btse-api", apiKeySecret.getApiKey());
 		requestBuilderBalance.addHeader("btse-sign", sign);
@@ -268,8 +319,6 @@ public class BTSEFuturesExchange extends AbstractExchange {
 		String responseString = null;
 		try {
 			responseString = sendRequest(request);
-
-			System.out.println(responseString);
 		} catch (IOException e) {
 			log.error("query balance failed.", e);
 		}
@@ -332,6 +381,7 @@ public class BTSEFuturesExchange extends AbstractExchange {
 		fill.setBuySell(BuySell.valueOf(node.get("side").asText().toUpperCase()));
 		fill.setPrice(node.get("price").asDouble());
 		fill.setQty(node.get("size").asDouble());
+		fill.setTimestamp(node.get("timestamp").asLong());
 
 		if (strategyName != null) {
 			fill.setUserName(userName);
@@ -343,6 +393,21 @@ public class BTSEFuturesExchange extends AbstractExchange {
 			}
 			mapUnknownFill.get(1).add(fill);
 		}
+	}
+	
+	private List<Fill> parseToFill(JsonNode node) {
+		List<Fill> lst = new ArrayList<>();
+		for(JsonNode jsonNode : node) {
+			Fill fill = new Fill();
+			fill.setOrderId(jsonNode.get("orderId").asText());
+			fill.setSymbol(jsonNode.get("symbol").asText());
+			fill.setBuySell(BuySell.valueOf(jsonNode.get("side").asText()));
+			fill.setPrice(jsonNode.get("price").asDouble());
+			fill.setQty(jsonNode.get("filledSize").asDouble());
+			fill.setTimestamp(jsonNode.get("timestamp").asLong());
+			lst.add(fill);
+		}
+		return lst;
 	}
 
 	private String getSign(String userName, String path, String nonce, String data)
@@ -382,7 +447,7 @@ public class BTSEFuturesExchange extends AbstractExchange {
 		}
 	}
 
-	private class BTSERunner implements Runnable {
+	private class UnknownFillRunner implements Runnable {
 		@Override
 		public void run() {
 			for (Integer i = 3; i > 0; i--) {
@@ -407,6 +472,14 @@ public class BTSEFuturesExchange extends AbstractExchange {
 					mapUnknownFill.get(i).clear();
 				}
 			}
+		}
+	}
+	
+	// 此交易所websocket非常不穩 用rest補斷線的交易
+	private class QueryFillRunner implements Runnable {
+		@Override
+		public void run() {
+			
 		}
 	}
 

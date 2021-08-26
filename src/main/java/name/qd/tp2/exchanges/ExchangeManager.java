@@ -84,6 +84,10 @@ public class ExchangeManager {
 		return mapExchange.get(exchange).getFill(strategyName);
 	}
 	
+	public List<Fill> getFillHistory(String exchange, String username, String symbol, long startTime, long endTime) {
+		return mapExchange.get(exchange).getFillHistory(username, symbol, startTime, endTime);
+	}
+	
 	public String sendOrder(String strategyName, String exchange, String userName, String symbol, BuySell buySell, double price, double qty) {
 		if(price == 0) {
 			return mapExchange.get(exchange).sendMarketOrder(userName, strategyName, symbol, buySell, qty);

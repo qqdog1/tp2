@@ -17,6 +17,7 @@ public interface Exchange {
 	public void unsubscribe(String symbol);
 	public Orderbook getOrderbook(String symbol);
 	public List<Fill> getFill(String strategyName);
+	public List<Fill> getFillHistory(String username, String symbol, long startTime, long endTime);
 	
 	public String sendLimitOrder(String userName, String strategyName, String symbol, BuySell buySell, double price, double qty);
 	public String sendMarketOrder(String userName, String strategyName, String symbol, BuySell buySell, double qty);

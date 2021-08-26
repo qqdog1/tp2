@@ -2,13 +2,17 @@ package name.qd.tp2.myImpl;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.time.ZonedDateTime;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
+import java.util.TimeZone;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,6 +46,7 @@ public class Grid2Strategy extends AbstractStrategy {
 	private String userName = "shawn";
 
 	// 自己設定一些策略內要用的變數
+	private SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 	private String symbol = "ETHPFC";
 	private int position = 0;
 	private double averagePrice = 0;
@@ -61,8 +66,13 @@ public class Grid2Strategy extends AbstractStrategy {
 	private int maxContractSize;
 	private int reportMinute;
 	private int notifyMinute = -1;
+	private String startTime;
+	
+	private Map<Integer, Fill> mapBuy = new HashMap<>();
+	private Map<Integer, Fill> mapSell = new HashMap<>();
 	
 	private boolean pause = false;
+	private boolean start = false;
 	
 	private Map<String, Integer> mapOrderIdToPrice = new HashMap<>();
 	private Set<Integer> setOpenPrice = new HashSet<>();
@@ -72,6 +82,7 @@ public class Grid2Strategy extends AbstractStrategy {
 		super(strategyConfig);
 
 		// 把設定值從config讀出來
+		startTime = strategyConfig.getCustomizeSettings("startTime");
 		priceRange = Integer.parseInt(strategyConfig.getCustomizeSettings("priceRange"));
 		orderSize = Integer.parseInt(strategyConfig.getCustomizeSettings("orderSize"));
 		stopProfitType = strategyConfig.getCustomizeSettings("stopProfitType");
@@ -86,6 +97,12 @@ public class Grid2Strategy extends AbstractStrategy {
 	
 	@Override
 	public void strategyAction() {
+		// 0. 依照歷史成交紀錄推斷上次沒結束的交易
+		if(!start) {
+			checkRemainOrder();
+			start = true;
+		}
+		
 		// 1. 檢查成交
 		//    有成交更新均價
 		checkFill();
@@ -102,6 +119,75 @@ public class Grid2Strategy extends AbstractStrategy {
 		checkPosition();
 	}
 	
+	private void checkRemainOrder() {
+		if(startTime != null) {
+			Date date = null;
+			try {
+				sdf.setTimeZone(TimeZone.getTimeZone("GMT+8"));
+				date = sdf.parse(startTime);
+			} catch (ParseException e) {
+				log.error("parse date failed.", e);
+			}
+			
+			long from = date.getTime();
+			ZonedDateTime zonedDateTime = ZonedDateTime.now();
+			long to = zonedDateTime.toEpochSecond() * 1000;
+			
+			boolean isLast = false;
+			while(!isLast) {
+				List<Fill> lst = exchangeManager.getFillHistory(ExchangeManager.BTSE_EXCHANGE_NAME, userName, symbol, from, to);
+				log.info("get fill size: {}", lst.size());
+				for(Fill fill : lst) {
+					if(fill.getQty() == 1) {
+						calcAvgPrice(fill);
+						int price = (int) fill.getPrice();
+						if(fill.getBuySell() == BuySell.BUY) {
+							if(mapSell.containsKey(price + stopProfit)) {
+								mapSell.remove(price + stopProfit);
+							} else {
+								mapBuy.put(price, fill);
+							}
+						} else {
+							if(mapBuy.containsKey(price - stopProfit)) {
+								mapBuy.remove(price - stopProfit);
+							} else {
+								mapSell.put(price, fill);
+							}
+						}
+					}
+					to = fill.getTimestamp();
+				}
+				
+				if(lst.size() < 100) {
+					isLast = true;
+				}
+			}
+			
+			// 補單
+			// 遺留買單成交 補停利單 補cache
+			mapBuy.forEach((price, fill) -> {
+				// 避免再下買單鋪單
+				setOpenPrice.add(price);
+				// 下停利單
+				placeStopProfitOrder(getStopProfitPrice(price));
+			});
+			
+			// 遺留賣單成交 補開倉單
+			mapSell.forEach((price, fill) -> {
+				log.warn("遺留賣單成交 {}, {} {}, {}", fill.getOrderId(), fill.getPrice(), fill.getQty(), fill.getTimestamp());
+			});
+		}
+	}
+	
+	private void placeStopProfitOrder(int price) {
+		String stopOrderId = sendOrder(BuySell.SELL, price, orderSize);
+		if(stopOrderId == null) {
+			log.error("下停利單失敗");
+			lineNotifyUtils.sendMessage(strategyName + " 下停利單失敗: " + price);
+		}
+		mapStopProfitOrderId.put(stopOrderId, price);
+	}
+	
 	private void checkFill() {
 		// TODO partial fill
 		List<Fill> lstFill = exchangeManager.getFill(strategyName, ExchangeManager.BTSE_EXCHANGE_NAME);
@@ -110,13 +196,7 @@ public class Grid2Strategy extends AbstractStrategy {
 			if(mapOrderIdToPrice.containsKey(orderId)) {
 				// 開倉單成交 下停利單
 				Integer price = mapOrderIdToPrice.remove(orderId);
-				price = getStopProfitPrice(price);
-				String stopOrderId = sendOrder(BuySell.SELL, price, orderSize);
-				if(stopOrderId == null) {
-					log.error("下停利單失敗");
-					lineNotifyUtils.sendMessage(strategyName + " 下停利單失敗: " + price);
-				}
-				mapStopProfitOrderId.put(stopOrderId, price);
+				placeStopProfitOrder(getStopProfitPrice(price));
 				
 				log.info("開倉單成交: {} {} {}, 下對應停利: {}", fill.getBuySell(), fill.getPrice(), fill.getQty(), price);
 				buyCount++;
