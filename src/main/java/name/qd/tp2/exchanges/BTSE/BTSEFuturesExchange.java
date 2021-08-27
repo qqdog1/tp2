@@ -379,7 +379,8 @@ public class BTSEFuturesExchange extends AbstractExchange {
 		fill.setOrderId(orderId);
 		fill.setSymbol(node.get("symbol").asText());
 		fill.setBuySell(BuySell.valueOf(node.get("side").asText().toUpperCase()));
-		fill.setPrice(node.get("price").asDouble());
+		fill.setFillPrice(node.get("avgFillPrice").asDouble());
+		fill.setOrderPrice(node.get("price").asDouble());
 		fill.setQty(node.get("size").asDouble());
 		fill.setTimestamp(node.get("timestamp").asLong());
 
@@ -402,7 +403,8 @@ public class BTSEFuturesExchange extends AbstractExchange {
 			fill.setOrderId(jsonNode.get("orderId").asText());
 			fill.setSymbol(jsonNode.get("symbol").asText());
 			fill.setBuySell(BuySell.valueOf(jsonNode.get("side").asText()));
-			fill.setPrice(jsonNode.get("price").asDouble());
+			fill.setFillPrice(jsonNode.get("filledPrice").asDouble());
+			fill.setOrderPrice(jsonNode.get("price").asDouble());
 			fill.setQty(jsonNode.get("filledSize").asDouble());
 			fill.setTimestamp(jsonNode.get("timestamp").asLong());
 			lst.add(fill);

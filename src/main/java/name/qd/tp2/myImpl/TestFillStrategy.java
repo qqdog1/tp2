@@ -31,12 +31,19 @@ public class TestFillStrategy extends AbstractStrategy {
 	private String symbol = "ETHPFC";
 	private String username = "shawn";
 	
+	private int position = 0;
+	private double cost = 0;
+	private double averagePrice = 0;
+	private double fee;
+	
 	private List<Integer> lstBuy = new ArrayList<>();
 	private List<Integer> lstSell = new ArrayList<>();
 	private ObjectMapper objectMapper = new ObjectMapper();
 
 	public TestFillStrategy(StrategyConfig strategyConfig) {
 		super(strategyConfig);
+		
+		fee = Double.parseDouble(strategyConfig.getCustomizeSettings("fee"));
 	}
 
 	@Override
@@ -58,27 +65,29 @@ public class TestFillStrategy extends AbstractStrategy {
 			List<Fill> lst = exchangeManager.getFillHistory(ExchangeManager.BTSE_EXCHANGE_NAME, username, symbol, from, to);
 			log.info("get fill size: {}", lst.size());
 			for(Fill fill : lst) {
-				try {
-					log.info(objectMapper.writeValueAsString(fill));
-				} catch (JsonProcessingException e) {
-					e.printStackTrace();
-				}
-//				if(setProcessedId.contains(fill.getOrderId())) {
-//					isLast = true;
-//					break;
-//				}
-				
 				if(fill.getQty() == 1) {
-					int price = (int) fill.getPrice();
+					try {
+						log.info(objectMapper.writeValueAsString(fill));
+					} catch (JsonProcessingException e) {
+						e.printStackTrace();
+					}
+					
+					calcAvgPrice(fill);
+					
+					int price = (int) fill.getFillPrice();
 					if(fill.getBuySell() == BuySell.BUY) {
 						if(lstSell.contains(price + 6)) {
-							lstSell.remove((Object) (price + 6));
+							if(!lstSell.remove((Object) (price + 6))) {
+								log.error("刪除cache失敗");
+							}
 						} else {
 							lstBuy.add(price);
 						}
 					} else {
 						if(lstBuy.contains(price - 6)) {
-							lstBuy.remove((Object) (price - 6));
+							if(!lstBuy.remove((Object) (price - 6))) {
+								log.error("刪除cache失敗");
+							}
 						} else {
 							lstSell.add(price);
 						}
@@ -99,12 +108,22 @@ public class TestFillStrategy extends AbstractStrategy {
 			log.info("Sell: {}", price);
 		}
 		
-		try {
-			Thread.sleep(1000000);
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+		System.exit(0);
+	}
+	
+	private void calcAvgPrice(Fill fill) {
+		if(BuySell.BUY == fill.getBuySell()) {
+			position += fill.getQty();
+			double feeCost = fill.getQty() * fill.getFillPrice() * fee;
+			cost = cost + (fill.getQty() * fill.getFillPrice()) + feeCost;
+			averagePrice = cost / position;
+		} else {
+			position -= fill.getQty();
+			double feeCost = fill.getQty() * fill.getFillPrice() * fee;
+			cost = cost - (fill.getQty() * fill.getFillPrice()) + feeCost;
+			averagePrice = cost / position;
 		}
+		log.info("position: {}, cost: {}, avgPrice: {}", position, cost, averagePrice);
 	}
 
 	public static void main(String[] s) {

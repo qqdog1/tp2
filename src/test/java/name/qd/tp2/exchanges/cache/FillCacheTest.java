@@ -28,13 +28,13 @@ public class FillCacheTest {
 	public void pushAndPop() {
 		Fill fillA = new Fill();
 		fillA.setUserName("AA");
-		fillA.setPrice(123d);
+		fillA.setFillPrice(123d);
 		fillA.setQty(0.02d);
 		fillA.setSymbol("BTC");
 		
 		Fill fillB = new Fill();
 		fillB.setUserName("BB");
-		fillB.setPrice(321d);
+		fillB.setFillPrice(321d);
 		fillB.setQty(0.111d);
 		fillB.setSymbol("ETH");
 		
@@ -46,13 +46,13 @@ public class FillCacheTest {
 		List<Fill> lst = fillCache.getFill("TEST");
 		Fill fill = lst.get(0);
 		assertTrue(fill.getUserName().equals(fillA.getUserName()));
-		assertTrue(fill.getPrice() == fillA.getPrice());
+		assertTrue(fill.getFillPrice() == fillA.getFillPrice());
 		assertTrue(fill.getQty() == fillA.getQty());
 		assertTrue(fill.getSymbol() == fillA.getSymbol());
 		// should get B
 		fill = lst.get(1);
 		assertTrue(fill.getUserName().equals(fillB.getUserName()));
-		assertTrue(fill.getPrice() == fillB.getPrice());
+		assertTrue(fill.getFillPrice() == fillB.getFillPrice());
 		assertTrue(fill.getQty() == fillB.getQty());
 		assertTrue(fill.getSymbol().equals(fillB.getSymbol()));
 	}

@@ -5,6 +5,7 @@ import java.math.RoundingMode;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -68,8 +69,8 @@ public class Grid2Strategy extends AbstractStrategy {
 	private int notifyMinute = -1;
 	private String startTime;
 	
-	private Map<Integer, Fill> mapBuy = new HashMap<>();
-	private Map<Integer, Fill> mapSell = new HashMap<>();
+	private List<Integer> lstBuy = new ArrayList<>();
+	private List<Integer> lstSell = new ArrayList<>();
 	
 	private boolean pause = false;
 	private boolean start = false;
@@ -140,18 +141,18 @@ public class Grid2Strategy extends AbstractStrategy {
 				for(Fill fill : lst) {
 					if(fill.getQty() == 1) {
 						calcAvgPrice(fill);
-						int price = (int) fill.getPrice();
+						int price = (int) fill.getFillPrice();
 						if(fill.getBuySell() == BuySell.BUY) {
-							if(mapSell.containsKey(price + stopProfit)) {
-								mapSell.remove(price + stopProfit);
+							if(lstSell.contains(price + stopProfit)) {
+								lstSell.remove((Object) (price + stopProfit));
 							} else {
-								mapBuy.put(price, fill);
+								lstBuy.add(price);
 							}
 						} else {
-							if(mapBuy.containsKey(price - stopProfit)) {
-								mapBuy.remove(price - stopProfit);
+							if(lstBuy.contains(price - stopProfit)) {
+								lstBuy.remove(price - stopProfit);
 							} else {
-								mapSell.put(price, fill);
+								lstSell.add(price);
 							}
 						}
 					}
@@ -165,7 +166,7 @@ public class Grid2Strategy extends AbstractStrategy {
 			
 			// 補單
 			// 遺留買單成交 補停利單 補cache
-			mapBuy.forEach((price, fill) -> {
+			lstBuy.forEach((price) -> {
 				// 避免再下買單鋪單
 				setOpenPrice.add(price);
 				// 下停利單
@@ -173,8 +174,8 @@ public class Grid2Strategy extends AbstractStrategy {
 			});
 			
 			// 遺留賣單成交 補開倉單
-			mapSell.forEach((price, fill) -> {
-				log.warn("遺留賣單成交 {}, {} {}, {}", fill.getOrderId(), fill.getPrice(), fill.getQty(), fill.getTimestamp());
+			lstSell.forEach((price) -> {
+				log.warn("遺留賣單成交 {}", price);
 			});
 		}
 	}
@@ -198,7 +199,7 @@ public class Grid2Strategy extends AbstractStrategy {
 				Integer price = mapOrderIdToPrice.remove(orderId);
 				placeStopProfitOrder(getStopProfitPrice(price));
 				
-				log.info("開倉單成交: {} {} {}, 下對應停利: {}", fill.getBuySell(), fill.getPrice(), fill.getQty(), price);
+				log.info("開倉單成交: {} {} {}, 下對應停利: {}", fill.getBuySell(), fill.getFillPrice(), fill.getQty(), getStopProfitPrice(price));
 				buyCount++;
 				// 算均價
 				calcAvgPrice(fill);
@@ -208,7 +209,7 @@ public class Grid2Strategy extends AbstractStrategy {
 				// TODO 目前回算open order價格是fix方式
 				setOpenPrice.remove(price - (int) stopProfit);
 				
-				log.info("停利單成交: {} {} {}, 對應開倉應於: {}", fill.getBuySell(), fill.getPrice(), fill.getQty(), price - stopProfit);
+				log.info("停利單成交: {} {} {}, 對應開倉應於: {}", fill.getBuySell(), fill.getFillPrice(), fill.getQty(), price - stopProfit);
 				sellCount++;
 				// 算均價
 				calcAvgPrice(fill);
@@ -295,13 +296,13 @@ public class Grid2Strategy extends AbstractStrategy {
 	private void calcAvgPrice(Fill fill) {
 		if(BuySell.BUY == fill.getBuySell()) {
 			position += fill.getQty();
-			double feeCost = fill.getQty() * fill.getPrice() * fee;
-			cost = cost + (fill.getQty() * fill.getPrice()) + feeCost;
+			double feeCost = fill.getQty() * fill.getFillPrice() * fee;
+			cost = cost + (fill.getQty() * fill.getFillPrice()) + feeCost;
 			averagePrice = cost / position;
 		} else {
 			position -= fill.getQty();
-			double feeCost = fill.getQty() * fill.getPrice() * fee;
-			cost = cost - (fill.getQty() * fill.getPrice()) + feeCost;
+			double feeCost = fill.getQty() * fill.getFillPrice() * fee;
+			cost = cost - (fill.getQty() * fill.getFillPrice()) + feeCost;
 			averagePrice = cost / position;
 		}
 		log.info("position: {}, cost: {}, avgPrice: {}", position, cost, averagePrice);
