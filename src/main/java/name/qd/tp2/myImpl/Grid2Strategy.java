@@ -69,16 +69,16 @@ public class Grid2Strategy extends AbstractStrategy {
 	private int notifyMinute = -1;
 	private String startTime;
 	
-	private List<Integer> lstBuy = new ArrayList<>();
-	private List<Integer> lstSell = new ArrayList<>();
+	private List<BigDecimal> lstBuy = new ArrayList<>();
+	private List<BigDecimal> lstSell = new ArrayList<>();
 	
 	private boolean pause = false;
 	private boolean start = false;
 	private long lastFillTime;
 	
-	private Map<String, Integer> mapOrderIdToPrice = new HashMap<>();
-	private Set<Integer> setOpenPrice = new HashSet<>();
-	private Map<String, Integer> mapStopProfitOrderId = new HashMap<>();
+	private Map<String, BigDecimal> mapOrderIdToPrice = new HashMap<>();
+	private Set<BigDecimal> setOpenPrice = new HashSet<>();
+	private Map<String, BigDecimal> mapStopProfitOrderId = new HashMap<>();
 
 	public Grid2Strategy(StrategyConfig strategyConfig) {
 		super(strategyConfig);
@@ -145,23 +145,25 @@ public class Grid2Strategy extends AbstractStrategy {
 					int qty = Integer.parseInt(fill.getQty());
 					if(qty == 1) {
 						calcAvgPrice(fill);
-						int price = (int) Double.parseDouble(fill.getOrderPrice());
+						BigDecimal price = new BigDecimal(fill.getOrderPrice());
 						if(fill.getBuySell() == BuySell.BUY) {
-							if(lstSell.contains(price + (int) stopProfit)) {
-								if(!lstSell.remove((Object) (price + (int) stopProfit))) {
+							if(lstSell.contains(price.add(BigDecimal.valueOf(stopProfit)))) {
+								if(!lstSell.remove(price.add(BigDecimal.valueOf(stopProfit)))) {
 									log.error("刪除cache失敗");
 								}
 							} else {
 								lstBuy.add(price);
 							}
-						} else {
-							if(lstBuy.contains(price - (int) stopProfit)) {
-								if(!lstBuy.remove((Object) (price - (int) stopProfit))) {
+						} else if(fill.getBuySell() == BuySell.SELL) {
+							if(lstBuy.contains(price.subtract(BigDecimal.valueOf(stopProfit)))) {
+								if(!lstBuy.remove(price.subtract(BigDecimal.valueOf(stopProfit)))) {
 									log.error("刪除cache失敗");
 								}
 							} else {
 								lstSell.add(price);
 							}
+						} else {
+							log.error("unknown side");
 						}
 					}
 					to = fill.getTimestamp();
@@ -185,13 +187,13 @@ public class Grid2Strategy extends AbstractStrategy {
 			// 遺留賣單成交 補開倉單
 			// 會沒算到成本 直到賣單清零重開才會算對
 			lstSell.forEach((price) -> {
-				sendOrder(BuySell.BUY, price - stopProfit, orderSize);
+				sendOrder(BuySell.BUY, price.subtract(BigDecimal.valueOf(stopProfit)).doubleValue(), orderSize);
 			});
 		}
 	}
 	
-	private void placeStopProfitOrder(int price) {
-		String stopOrderId = sendOrder(BuySell.SELL, price, orderSize);
+	private void placeStopProfitOrder(BigDecimal price) {
+		String stopOrderId = sendOrder(BuySell.SELL, price.doubleValue(), orderSize);
 		if(stopOrderId == null) {
 			log.error("下停利單失敗");
 			lineNotifyUtils.sendMessage(strategyName + " 下停利單失敗: " + price);
@@ -221,7 +223,7 @@ public class Grid2Strategy extends AbstractStrategy {
 			String orderId = fill.getOrderId();
 			if(mapOrderIdToPrice.containsKey(orderId)) {
 				// 開倉單成交 下停利單
-				Integer price = mapOrderIdToPrice.remove(orderId);
+				BigDecimal price = mapOrderIdToPrice.remove(orderId);
 				placeStopProfitOrder(getStopProfitPrice(price));
 				
 				log.info("開倉單成交: {} {} {}, 下對應停利: {}", fill.getBuySell(), fill.getFillPrice(), fill.getQty(), getStopProfitPrice(price));
@@ -230,11 +232,11 @@ public class Grid2Strategy extends AbstractStrategy {
 				calcAvgPrice(fill);
 			} else if(mapStopProfitOrderId.containsKey(orderId)) {
 				// 停利單成交
-				Integer price = mapStopProfitOrderId.remove(orderId);
+				BigDecimal price = mapStopProfitOrderId.remove(orderId);
 				// TODO 目前回算open order價格是fix方式
-				setOpenPrice.remove(price - (int) stopProfit);
+				setOpenPrice.remove(price.subtract(BigDecimal.valueOf(stopProfit)));
 				
-				log.info("停利單成交: {} {} {}, 對應開倉應於: {}", fill.getBuySell(), fill.getFillPrice(), fill.getQty(), price - stopProfit);
+				log.info("停利單成交: {} {} {}, 對應開倉應於: {}", fill.getBuySell(), fill.getFillPrice(), fill.getQty(), price.subtract(BigDecimal.valueOf(stopProfit)));
 				sellCount++;
 				// 算均價
 				calcAvgPrice(fill);
@@ -244,16 +246,16 @@ public class Grid2Strategy extends AbstractStrategy {
 		}
 	}
 	
-	private int getStopProfitPrice(int price) {
+	private BigDecimal getStopProfitPrice(BigDecimal price) {
 		// TODO 目前只能用fix
 		// TODO 要加入手續費計算 不然價格大fix加上去可能還cover不掉手續費
 		if("fix".equals(stopProfitType)) {
-			return price + (int) stopProfit;
+			return price.add(BigDecimal.valueOf(stopProfit));
 //		} else if("rate".equals(stopProfitType)) {
 //			return (int) (price * stopProfit);
 		} else {
 			log.error("未知停利方式...");
-			return 0;
+			return BigDecimal.ZERO;
 		}
 	}
 	
@@ -265,12 +267,11 @@ public class Grid2Strategy extends AbstractStrategy {
 		orderPrice -= orderPrice % priceRange;
 		
 		for(int i = 0 ; i < orderLevel ;) {
-			int price = orderPrice - (i * priceRange);
-			
+			BigDecimal price = BigDecimal.valueOf(orderPrice - (i * priceRange));
 			if(!setOpenPrice.contains(price)) {
-				String orderId = sendOrder(BuySell.BUY, price, orderSize);
+				String orderId = sendOrder(BuySell.BUY, price.doubleValue(), orderSize);
 				if(orderId != null) {
-					mapOrderIdToPrice.put(orderId, (int) price);
+					mapOrderIdToPrice.put(orderId, price);
 					setOpenPrice.add(price);
 					i++;
 				} 
@@ -308,7 +309,7 @@ public class Grid2Strategy extends AbstractStrategy {
 	private void cancelAllOpenOrder() {
 		for(String orderId : mapOrderIdToPrice.keySet()) {
 			if(cancelOrder(orderId)) {
-				Integer price = mapOrderIdToPrice.get(orderId);
+				BigDecimal price = mapOrderIdToPrice.get(orderId);
 				setOpenPrice.remove(price);
 			} else {
 				log.error("刪單失敗: " + orderId);

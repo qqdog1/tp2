@@ -44,7 +44,6 @@ public class TestFillStrategy extends AbstractStrategy {
 	
 	private List<BigDecimal> lstBuy = new ArrayList<>();
 	private List<BigDecimal> lstSell = new ArrayList<>();
-	private Map<BigDecimal, Integer> mapPriceCount = new HashMap<>();
 	private ObjectMapper objectMapper = new ObjectMapper();
 
 	public TestFillStrategy(StrategyConfig strategyConfig) {
@@ -85,11 +84,6 @@ public class TestFillStrategy extends AbstractStrategy {
 					
 					BigDecimal price = new BigDecimal(fill.getOrderPrice());
 					if(fill.getBuySell() == BuySell.BUY) {
-						if(!mapPriceCount.containsKey(price)) {
-							mapPriceCount.put(price, 0);
-						}
-						mapPriceCount.put(price, mapPriceCount.get(price) + 1);
-						
 						if(lstSell.contains(price.add(BigDecimal.valueOf(6)))) {
 							if(!lstSell.remove(price.add(BigDecimal.valueOf(6)))) {
 								log.error("刪除cache失敗");
@@ -98,11 +92,6 @@ public class TestFillStrategy extends AbstractStrategy {
 							lstBuy.add(price);
 						}
 					} else if(fill.getBuySell() == BuySell.SELL) {
-						if(!mapPriceCount.containsKey(price)) {
-							mapPriceCount.put(price, 0);
-						}
-						mapPriceCount.put(price, mapPriceCount.get(price) - 1);
-						
 						if(lstBuy.contains(price.subtract(BigDecimal.valueOf(6)))) {
 							if(!lstBuy.remove(price.subtract(BigDecimal.valueOf(6)))) {
 								log.error("刪除cache失敗");
@@ -128,12 +117,6 @@ public class TestFillStrategy extends AbstractStrategy {
 		for(BigDecimal price : lstSell) {
 			log.info("Sell: {}", price);
 		}
-		
-		Stream<Map.Entry<BigDecimal, Integer>> stream = mapPriceCount.entrySet().stream().sorted(Map.Entry.comparingByKey());
-		
-		stream.forEach((entry) -> {
-			log.info("{} -> {}", entry.getKey(), entry.getValue());
-		});
 		
 		log.info("total: {}", totalFill);
 		
