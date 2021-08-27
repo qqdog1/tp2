@@ -142,9 +142,10 @@ public class Grid2Strategy extends AbstractStrategy {
 				List<Fill> lst = exchangeManager.getFillHistory(ExchangeManager.BTSE_EXCHANGE_NAME, userName, symbol, from, to);
 				log.info("get fill size: {}", lst.size());
 				for(Fill fill : lst) {
-					if(fill.getQty() == 1) {
+					int qty = Integer.parseInt(fill.getQty());
+					if(qty == 1) {
 						calcAvgPrice(fill);
-						int price = (int) fill.getOrderPrice();
+						int price = (int) Double.parseDouble(fill.getOrderPrice());
 						if(fill.getBuySell() == BuySell.BUY) {
 							if(lstSell.contains(price + (int) stopProfit)) {
 								if(!lstSell.remove((Object) (price + (int) stopProfit))) {
@@ -318,15 +319,17 @@ public class Grid2Strategy extends AbstractStrategy {
 	}
 	
 	private void calcAvgPrice(Fill fill) {
+		int qty = Integer.parseInt(fill.getQty());
+		double fillPrice = Double.parseDouble(fill.getFillPrice());
 		if(BuySell.BUY == fill.getBuySell()) {
-			position += fill.getQty();
-			double feeCost = fill.getQty() * fill.getFillPrice() * fee;
-			cost = cost + (fill.getQty() * fill.getFillPrice()) + feeCost;
+			position += qty;
+			double feeCost = qty * fillPrice * fee;
+			cost = cost + (qty * fillPrice) + feeCost;
 			averagePrice = cost / position;
 		} else {
-			position -= fill.getQty();
-			double feeCost = fill.getQty() * fill.getFillPrice() * fee;
-			cost = cost - (fill.getQty() * fill.getFillPrice()) + feeCost;
+			position -= qty;
+			double feeCost = qty * fillPrice * fee;
+			cost = cost - (qty * fillPrice) + feeCost;
 			averagePrice = cost / position;
 		}
 		log.info("position: {}, cost: {}, avgPrice: {}", position, cost, averagePrice);

@@ -28,14 +28,14 @@ public class FillCacheTest {
 	public void pushAndPop() {
 		Fill fillA = new Fill();
 		fillA.setUserName("AA");
-		fillA.setFillPrice(123d);
-		fillA.setQty(0.02d);
+		fillA.setFillPrice("123");
+		fillA.setQty("0.02");
 		fillA.setSymbol("BTC");
 		
 		Fill fillB = new Fill();
 		fillB.setUserName("BB");
-		fillB.setFillPrice(321d);
-		fillB.setQty(0.111d);
+		fillB.setFillPrice("321");
+		fillB.setQty("0.111");
 		fillB.setSymbol("ETH");
 		
 		// add A
@@ -46,14 +46,14 @@ public class FillCacheTest {
 		List<Fill> lst = fillCache.getFill("TEST");
 		Fill fill = lst.get(0);
 		assertTrue(fill.getUserName().equals(fillA.getUserName()));
-		assertTrue(fill.getFillPrice() == fillA.getFillPrice());
-		assertTrue(fill.getQty() == fillA.getQty());
+		assertTrue(fill.getFillPrice().equals(fillA.getFillPrice()));
+		assertTrue(fill.getQty().equals(fillA.getQty()));
 		assertTrue(fill.getSymbol() == fillA.getSymbol());
 		// should get B
 		fill = lst.get(1);
 		assertTrue(fill.getUserName().equals(fillB.getUserName()));
-		assertTrue(fill.getFillPrice() == fillB.getFillPrice());
-		assertTrue(fill.getQty() == fillB.getQty());
+		assertTrue(fill.getFillPrice().equals(fillB.getFillPrice()));
+		assertTrue(fill.getQty().equals(fillB.getQty()));
 		assertTrue(fill.getSymbol().equals(fillB.getSymbol()));
 	}
 }

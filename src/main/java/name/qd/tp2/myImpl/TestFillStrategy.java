@@ -1,15 +1,19 @@
 package name.qd.tp2.myImpl;
 
+import java.math.BigDecimal;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.TimeZone;
+import java.util.stream.Stream;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,8 +40,11 @@ public class TestFillStrategy extends AbstractStrategy {
 	private double averagePrice = 0;
 	private double fee;
 	
-	private List<Integer> lstBuy = new ArrayList<>();
-	private List<Integer> lstSell = new ArrayList<>();
+	private int totalFill = 0;
+	
+	private List<BigDecimal> lstBuy = new ArrayList<>();
+	private List<BigDecimal> lstSell = new ArrayList<>();
+	private Map<BigDecimal, Integer> mapPriceCount = new HashMap<>();
 	private ObjectMapper objectMapper = new ObjectMapper();
 
 	public TestFillStrategy(StrategyConfig strategyConfig) {
@@ -53,6 +60,7 @@ public class TestFillStrategy extends AbstractStrategy {
 		try {
 			sdf.setTimeZone(TimeZone.getTimeZone("GMT+8"));
 			date = sdf.parse("2021-08-23 18:19:00");
+//			date = sdf.parse("2021-08-27 00:00:00");
 		} catch (ParseException e) {
 			e.printStackTrace();
 		}
@@ -64,8 +72,9 @@ public class TestFillStrategy extends AbstractStrategy {
 		while(!isLast) {
 			List<Fill> lst = exchangeManager.getFillHistory(ExchangeManager.BTSE_EXCHANGE_NAME, username, symbol, from, to);
 			log.info("get fill size: {}", lst.size());
+			totalFill += lst.size();
 			for(Fill fill : lst) {
-				if(fill.getQty() == 1) {
+				if(Integer.parseInt(fill.getQty()) == 1) {
 					try {
 						log.info(objectMapper.writeValueAsString(fill));
 					} catch (JsonProcessingException e) {
@@ -74,23 +83,35 @@ public class TestFillStrategy extends AbstractStrategy {
 					
 					calcAvgPrice(fill);
 					
-					int price = (int) fill.getOrderPrice();
+					BigDecimal price = new BigDecimal(fill.getOrderPrice());
 					if(fill.getBuySell() == BuySell.BUY) {
-						if(lstSell.contains(price + 6)) {
-							if(!lstSell.remove((Object) (price + 6))) {
+						if(!mapPriceCount.containsKey(price)) {
+							mapPriceCount.put(price, 0);
+						}
+						mapPriceCount.put(price, mapPriceCount.get(price) + 1);
+						
+						if(lstSell.contains(price.add(BigDecimal.valueOf(6)))) {
+							if(!lstSell.remove(price.add(BigDecimal.valueOf(6)))) {
 								log.error("刪除cache失敗");
 							}
 						} else {
 							lstBuy.add(price);
 						}
-					} else {
-						if(lstBuy.contains(price - 6)) {
-							if(!lstBuy.remove((Object) (price - 6))) {
+					} else if(fill.getBuySell() == BuySell.SELL) {
+						if(!mapPriceCount.containsKey(price)) {
+							mapPriceCount.put(price, 0);
+						}
+						mapPriceCount.put(price, mapPriceCount.get(price) - 1);
+						
+						if(lstBuy.contains(price.subtract(BigDecimal.valueOf(6)))) {
+							if(!lstBuy.remove(price.subtract(BigDecimal.valueOf(6)))) {
 								log.error("刪除cache失敗");
 							}
 						} else {
 							lstSell.add(price);
 						}
+					} else {
+						log.error("unknown side");
 					}
 				}
 				to = fill.getTimestamp();
@@ -101,26 +122,36 @@ public class TestFillStrategy extends AbstractStrategy {
 			}
 		}
 		
-		for(int price : lstBuy) {
+		for(BigDecimal price : lstBuy) {
 			log.info("Buy: {}", price);
 		}
-		for(int price : lstSell) {
+		for(BigDecimal price : lstSell) {
 			log.info("Sell: {}", price);
 		}
+		
+		Stream<Map.Entry<BigDecimal, Integer>> stream = mapPriceCount.entrySet().stream().sorted(Map.Entry.comparingByKey());
+		
+		stream.forEach((entry) -> {
+			log.info("{} -> {}", entry.getKey(), entry.getValue());
+		});
+		
+		log.info("total: {}", totalFill);
 		
 		System.exit(0);
 	}
 	
 	private void calcAvgPrice(Fill fill) {
+		int qty = Integer.parseInt(fill.getQty());
+		double fillPrice = Double.parseDouble(fill.getFillPrice());
 		if(BuySell.BUY == fill.getBuySell()) {
-			position += fill.getQty();
-			double feeCost = fill.getQty() * fill.getFillPrice() * fee;
-			cost = cost + (fill.getQty() * fill.getFillPrice()) + feeCost;
+			position += Integer.parseInt(fill.getQty());
+			double feeCost = qty * fillPrice * fee;
+			cost = cost + (qty * fillPrice) + feeCost;
 			averagePrice = cost / position;
 		} else {
-			position -= fill.getQty();
-			double feeCost = fill.getQty() * fill.getFillPrice() * fee;
-			cost = cost - (fill.getQty() * fill.getFillPrice()) + feeCost;
+			position -= qty;
+			double feeCost = qty * fillPrice * fee;
+			cost = cost - (qty * fillPrice) + feeCost;
 			averagePrice = cost / position;
 		}
 		log.info("position: {}, cost: {}, avgPrice: {}", position, cost, averagePrice);

@@ -176,9 +176,11 @@ public class GridStrategy extends AbstractStrategy {
 		List<Fill> lstFill = exchangeManager.getFill(strategyName, ExchangeManager.BTSE_EXCHANGE_NAME);
 		for(Fill fill : lstFill) {
 			log.debug("收到成交 {} {} {}", fill.getOrderPrice(), fill.getQty(), fill.getOrderId());
+			int qty = Integer.parseInt(fill.getQty());
+			double orderPrice = Double.parseDouble(fill.getOrderPrice());
 			if(position < firstContractSize) {
-				averagePrice = ((position * averagePrice) + (fill.getOrderPrice() * fill.getQty())) / (position + fill.getQty());
-				position += fill.getQty();
+				averagePrice = ((position * averagePrice) + (orderPrice * qty)) / (position + qty);
+				position += qty;
 				if(position == firstContractSize) {
 					log.info("第一單完全成交");
 					lineNotifyUtils.sendMessage(strategyName + "第一單完全成交");
@@ -188,38 +190,38 @@ public class GridStrategy extends AbstractStrategy {
 					// 鋪單
 					placeLevelOrders(1, averagePrice);
 				} else {
-					log.warn("第一單部分成交 {} {}", fill.getOrderPrice(), fill.getQty());
+					log.warn("第一單部分成交 {} {}", fill.getOrderPrice(), qty);
 					lineNotifyUtils.sendMessage(strategyName + "第一單部分成交");
 				}
 			} else {
 				if(fill.getOrderId().equals(stopProfitOrderId)) {
 					// 停利單成交
-					position -= fill.getQty();
+					position -= qty;
 					if(position == firstContractSize ) {
 						log.info("停利單完全成交");
 						lineNotifyUtils.sendMessage(strategyName + "停利單完全成交");
 						stopProfitOrderId = null;
 						// 計算獲利
-						calcProfit(fill.getQty(), fill.getOrderPrice());
+						calcProfit(qty, orderPrice);
 						// 重算成本
-						averagePrice = fill.getOrderPrice();
+						averagePrice = orderPrice;
 						// 重算目標價
 						targetPrice = getTargetPrice(averagePrice);
 						// 刪除之前鋪單
 						cancelOrder(null);
 						// 鋪單
-						placeLevelOrders(1, fill.getOrderPrice());
+						placeLevelOrders(1, orderPrice);
 					} else {
 						log.warn("停利單部分成交 {}, {}", fill.getOrderPrice(), fill.getQty());
 						lineNotifyUtils.sendMessage(strategyName + "停利單部分成交" + fill.getQty());
-						calcProfit(fill.getQty(), fill.getOrderPrice());
+						calcProfit(qty, orderPrice);
 					}
 				} else {
 					// 一般單成交
 					
 					// 重算成本  改停利單
-					averagePrice = ((position * averagePrice) + (fill.getOrderPrice() * fill.getQty())) / (position + fill.getQty());
-					position += fill.getQty();
+					averagePrice = ((position * averagePrice) + (orderPrice * qty)) / (position + qty);
+					position += qty;
 					// 清除舊的停利單
 					if(stopProfitOrderId != null) {
 						if(!cancelOrder(stopProfitOrderId)) {

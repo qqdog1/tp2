@@ -379,9 +379,9 @@ public class BTSEFuturesExchange extends AbstractExchange {
 		fill.setOrderId(orderId);
 		fill.setSymbol(node.get("symbol").asText());
 		fill.setBuySell(BuySell.valueOf(node.get("side").asText().toUpperCase()));
-		fill.setFillPrice(node.get("avgFillPrice").asDouble());
-		fill.setOrderPrice(node.get("price").asDouble());
-		fill.setQty(node.get("size").asDouble());
+		fill.setFillPrice(node.get("avgFillPrice").asText());
+		fill.setOrderPrice(node.get("price").asText());
+		fill.setQty(node.get("size").asText());
 		fill.setTimestamp(node.get("timestamp").asLong());
 
 		if (strategyName != null) {
@@ -403,9 +403,9 @@ public class BTSEFuturesExchange extends AbstractExchange {
 			fill.setOrderId(jsonNode.get("orderId").asText());
 			fill.setSymbol(jsonNode.get("symbol").asText());
 			fill.setBuySell(BuySell.valueOf(jsonNode.get("side").asText()));
-			fill.setFillPrice(jsonNode.get("filledPrice").asDouble());
-			fill.setOrderPrice(jsonNode.get("price").asDouble());
-			fill.setQty(jsonNode.get("filledSize").asDouble());
+			fill.setFillPrice(jsonNode.get("filledPrice").asText());
+			fill.setOrderPrice(jsonNode.get("price").asText());
+			fill.setQty(jsonNode.get("filledSize").asText());
 			fill.setTimestamp(jsonNode.get("timestamp").asLong());
 			lst.add(fill);
 		}

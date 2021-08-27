@@ -62,7 +62,7 @@ public class FillRecordCSV extends AbstractStrategy {
 			
 			
 			for(Fill fill : lst) {
-				if(fill.getQty() != 1) continue;
+				if(Integer.parseInt(fill.getQty()) != 1) continue;
 				
 				StringBuilder sb = new StringBuilder();
 				sb.append(fill.getOrderId()).append(",")

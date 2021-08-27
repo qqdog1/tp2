@@ -7,9 +7,9 @@ public class Fill {
 	private String orderId;
 	private String symbol;
 	private BuySell buySell;
-	private double fillPrice;
-	private double orderPrice;
-	private double qty;
+	private String fillPrice;
+	private String orderPrice;
+	private String qty;
 	private long timestamp;
 	public String getUserName() {
 		return userName;
@@ -29,22 +29,22 @@ public class Fill {
 	public void setSymbol(String symbol) {
 		this.symbol = symbol;
 	}
-	public double getFillPrice() {
+	public String getFillPrice() {
 		return fillPrice;
 	}
-	public void setFillPrice(double fillPrice) {
+	public void setFillPrice(String fillPrice) {
 		this.fillPrice = fillPrice;
 	}
-	public double getOrderPrice() {
+	public String getOrderPrice() {
 		return orderPrice;
 	}
-	public void setOrderPrice(double orderPrice) {
+	public void setOrderPrice(String orderPrice) {
 		this.orderPrice = orderPrice;
 	}
-	public double getQty() {
+	public String getQty() {
 		return qty;
 	}
-	public void setQty(double qty) {
+	public void setQty(String qty) {
 		this.qty = qty;
 	}
 	public BuySell getBuySell() {
