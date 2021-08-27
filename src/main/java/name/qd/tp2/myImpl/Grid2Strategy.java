@@ -181,6 +181,7 @@ public class Grid2Strategy extends AbstractStrategy {
 				setOpenPrice.add(price);
 				// 下停利單
 				placeStopProfitOrder(getStopProfitPrice(price));
+//				log.info("鋪賣 {}", getStopProfitPrice(price));
 				
 			});
 			
@@ -188,6 +189,7 @@ public class Grid2Strategy extends AbstractStrategy {
 			// 會沒算到成本 直到賣單清零重開才會算對
 			lstSell.forEach((price) -> {
 				sendOrder(BuySell.BUY, price.subtract(BigDecimal.valueOf(stopProfit)).doubleValue(), orderSize);
+//				log.info("鋪買 {}", price.subtract(BigDecimal.valueOf(stopProfit)).doubleValue());
 			});
 		}
 	}
