@@ -74,7 +74,7 @@ public class TestFillStrategy extends AbstractStrategy {
 					
 					calcAvgPrice(fill);
 					
-					int price = (int) fill.getFillPrice();
+					int price = (int) fill.getOrderPrice();
 					if(fill.getBuySell() == BuySell.BUY) {
 						if(lstSell.contains(price + 6)) {
 							if(!lstSell.remove((Object) (price + 6))) {

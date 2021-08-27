@@ -74,6 +74,7 @@ public class Grid2Strategy extends AbstractStrategy {
 	
 	private boolean pause = false;
 	private boolean start = false;
+	private long lastFillTime;
 	
 	private Map<String, Integer> mapOrderIdToPrice = new HashMap<>();
 	private Set<Integer> setOpenPrice = new HashSet<>();
@@ -106,7 +107,8 @@ public class Grid2Strategy extends AbstractStrategy {
 		
 		// 1. 檢查成交
 		//    有成交更新均價
-		checkFill();
+//		checkFill();
+		checkFillFromApi();
 		
 		// 2. 鋪單
 		if(!pause) {
@@ -133,6 +135,7 @@ public class Grid2Strategy extends AbstractStrategy {
 			long from = date.getTime();
 			ZonedDateTime zonedDateTime = ZonedDateTime.now();
 			long to = zonedDateTime.toEpochSecond() * 1000;
+			lastFillTime = to;
 			
 			boolean isLast = false;
 			while(!isLast) {
@@ -141,16 +144,20 @@ public class Grid2Strategy extends AbstractStrategy {
 				for(Fill fill : lst) {
 					if(fill.getQty() == 1) {
 						calcAvgPrice(fill);
-						int price = (int) fill.getFillPrice();
+						int price = (int) fill.getOrderPrice();
 						if(fill.getBuySell() == BuySell.BUY) {
-							if(lstSell.contains(price + stopProfit)) {
-								lstSell.remove((Object) (price + stopProfit));
+							if(lstSell.contains(price + (int) stopProfit)) {
+								if(!lstSell.remove((Object) (price + (int) stopProfit))) {
+									log.error("刪除cache失敗");
+								}
 							} else {
 								lstBuy.add(price);
 							}
 						} else {
-							if(lstBuy.contains(price - stopProfit)) {
-								lstBuy.remove(price - stopProfit);
+							if(lstBuy.contains(price - (int) stopProfit)) {
+								if(!lstBuy.remove((Object) (price - (int) stopProfit))) {
+									log.error("刪除cache失敗");
+								}
 							} else {
 								lstSell.add(price);
 							}
@@ -171,11 +178,13 @@ public class Grid2Strategy extends AbstractStrategy {
 				setOpenPrice.add(price);
 				// 下停利單
 				placeStopProfitOrder(getStopProfitPrice(price));
+				
 			});
 			
 			// 遺留賣單成交 補開倉單
+			// 會沒算到成本 直到賣單清零重開才會算對
 			lstSell.forEach((price) -> {
-				log.warn("遺留賣單成交 {}", price);
+				sendOrder(BuySell.BUY, price - stopProfit, orderSize);
 			});
 		}
 	}
@@ -192,6 +201,21 @@ public class Grid2Strategy extends AbstractStrategy {
 	private void checkFill() {
 		// TODO partial fill
 		List<Fill> lstFill = exchangeManager.getFill(strategyName, ExchangeManager.BTSE_EXCHANGE_NAME);
+		processFill(lstFill);
+	}
+	
+	private void checkFillFromApi() {
+		// websocket 不可靠 打API拿成交
+		ZonedDateTime zonedDateTime = ZonedDateTime.now();
+		long to = zonedDateTime.toEpochSecond() * 1000;
+		
+		List<Fill> lst = exchangeManager.getFillHistory(ExchangeManager.BTSE_EXCHANGE_NAME, userName, symbol, lastFillTime, to);
+		lastFillTime = to;
+		
+		processFill(lst);
+	}
+	
+	private void processFill(List<Fill> lstFill) {
 		for(Fill fill : lstFill) {
 			String orderId = fill.getOrderId();
 			if(mapOrderIdToPrice.containsKey(orderId)) {
