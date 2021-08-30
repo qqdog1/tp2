@@ -215,6 +215,8 @@ public class Grid2Strategy extends AbstractStrategy {
 		long to = zonedDateTime.toEpochSecond() * 1000;
 		
 		List<Fill> lst = exchangeManager.getFillHistory(ExchangeManager.BTSE_EXCHANGE_NAME, userName, symbol, lastFillTime, to);
+		if(lst == null) return;
+		
 		lastFillTime = to;
 		
 		processFill(lst);

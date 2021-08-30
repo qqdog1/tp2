@@ -1,5 +1,6 @@
 package name.qd.tp2.myImpl;
 
+import java.time.ZonedDateTime;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
@@ -63,6 +64,9 @@ public class GridStrategy extends AbstractStrategy {
 	
 	private boolean isStartWithRemain;
 	
+	private long from;
+	private long to;
+	
 	public GridStrategy(StrategyConfig strategyConfig) {
 		super(strategyConfig);
 
@@ -77,6 +81,10 @@ public class GridStrategy extends AbstractStrategy {
 		lineNotify = strategyConfig.getCustomizeSettings("lineNotify");
 		
 		lineNotifyUtils = new LineNotifyUtils(lineNotify);
+		
+		ZonedDateTime zonedDateTime = ZonedDateTime.now();
+		from = zonedDateTime.toEpochSecond() * 1000;
+		to = zonedDateTime.toEpochSecond() * 1000;
 		
 		// 若有設定剩餘未平倉單
 		// 讓策略可以接續
@@ -173,7 +181,15 @@ public class GridStrategy extends AbstractStrategy {
 	}
 
 	private void checkFill() {
-		List<Fill> lstFill = exchangeManager.getFill(strategyName, ExchangeManager.BTSE_EXCHANGE_NAME);
+		ZonedDateTime zonedDateTime = ZonedDateTime.now();
+		to = zonedDateTime.toEpochSecond() * 1000;
+		
+		List<Fill> lstFill = exchangeManager.getFillHistory(ExchangeManager.BTSE_EXCHANGE_NAME, userName, symbol, from, to);
+		
+		if(lstFill == null) return;
+		from = to;
+		
+//		List<Fill> lstFill = exchangeManager.getFill(strategyName, ExchangeManager.BTSE_EXCHANGE_NAME);
 		for(Fill fill : lstFill) {
 			log.debug("收到成交 {} {} {}", fill.getOrderPrice(), fill.getQty(), fill.getOrderId());
 			int qty = Integer.parseInt(fill.getQty());
