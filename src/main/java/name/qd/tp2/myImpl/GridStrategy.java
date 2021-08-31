@@ -191,6 +191,9 @@ public class GridStrategy extends AbstractStrategy {
 		
 //		List<Fill> lstFill = exchangeManager.getFill(strategyName, ExchangeManager.BTSE_EXCHANGE_NAME);
 		for(Fill fill : lstFill) {
+			// 濾掉不是此策略的成交
+			if(!setOrderId.contains(fill.getOrderId()) && !fill.getOrderId().equals(stopProfitOrderId)) continue;
+			
 			log.debug("收到成交 {} {} {}", fill.getOrderPrice(), fill.getQty(), fill.getOrderId());
 			int qty = Integer.parseInt(fill.getQty());
 			double orderPrice = Double.parseDouble(fill.getOrderPrice());

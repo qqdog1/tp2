@@ -77,7 +77,7 @@ public class Grid2Strategy extends AbstractStrategy {
 	private long lastFillTime;
 	
 	private Map<String, BigDecimal> mapOrderIdToPrice = new HashMap<>();
-	private Set<BigDecimal> setOpenPrice = new HashSet<>();
+	private Set<Double> setOpenPrice = new HashSet<>();
 	private Map<String, BigDecimal> mapStopProfitOrderId = new HashMap<>();
 
 	public Grid2Strategy(StrategyConfig strategyConfig) {
@@ -178,7 +178,7 @@ public class Grid2Strategy extends AbstractStrategy {
 			// 遺留買單成交 補停利單 補cache
 			lstBuy.forEach((price) -> {
 				// 避免再下買單鋪單
-				setOpenPrice.add(price);
+				setOpenPrice.add(price.doubleValue());
 				// 下停利單
 				placeStopProfitOrder(getStopProfitPrice(price));
 //				log.info("鋪賣 {}", getStopProfitPrice(price));
@@ -238,7 +238,7 @@ public class Grid2Strategy extends AbstractStrategy {
 				// 停利單成交
 				BigDecimal price = mapStopProfitOrderId.remove(orderId);
 				// TODO 目前回算open order價格是fix方式
-				setOpenPrice.remove(price.subtract(BigDecimal.valueOf(stopProfit)));
+				setOpenPrice.remove(price.subtract(BigDecimal.valueOf(stopProfit)).doubleValue());
 				
 				log.info("停利單成交: {} {} {}, 對應開倉應於: {}", fill.getBuySell(), fill.getFillPrice(), fill.getQty(), price.subtract(BigDecimal.valueOf(stopProfit)));
 				sellCount++;
@@ -272,11 +272,11 @@ public class Grid2Strategy extends AbstractStrategy {
 		
 		for(int i = 0 ; i < orderLevel ;) {
 			BigDecimal price = BigDecimal.valueOf(orderPrice - (i * priceRange));
-			if(!setOpenPrice.contains(price)) {
+			if(!setOpenPrice.contains(price.doubleValue())) {
 				String orderId = sendOrder(BuySell.BUY, price.doubleValue(), orderSize);
 				if(orderId != null) {
 					mapOrderIdToPrice.put(orderId, price);
-					setOpenPrice.add(price);
+					setOpenPrice.add(price.doubleValue());
 					i++;
 				} 
 			} else {
@@ -314,7 +314,7 @@ public class Grid2Strategy extends AbstractStrategy {
 		for(String orderId : mapOrderIdToPrice.keySet()) {
 			if(cancelOrder(orderId)) {
 				BigDecimal price = mapOrderIdToPrice.get(orderId);
-				setOpenPrice.remove(price);
+				setOpenPrice.remove(price.doubleValue());
 			} else {
 				log.error("刪單失敗: " + orderId);
 				lineNotifyUtils.sendMessage("爆倉刪單失敗");
