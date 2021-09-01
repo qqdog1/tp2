@@ -6,6 +6,8 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -74,6 +76,7 @@ public class Grid2Strategy extends AbstractStrategy {
 	
 	private boolean pause = false;
 	private boolean start = false;
+	private boolean placeFirst = true;
 	private long lastFillTime;
 	
 	private Map<String, BigDecimal> mapOrderIdToPrice = new HashMap<>();
@@ -101,6 +104,7 @@ public class Grid2Strategy extends AbstractStrategy {
 	public void strategyAction() {
 		// 0. 依照歷史成交紀錄推斷上次沒結束的交易
 		if(!start) {
+			// 有點問題
 			checkRemainOrder();
 			start = true;
 		}
@@ -120,6 +124,9 @@ public class Grid2Strategy extends AbstractStrategy {
 		
 		// 4. 滿倉回報
 		checkPosition();
+		
+		// 5. 刪掉太遠的買單
+		closeFarOpenOrder();
 	}
 	
 	private void checkRemainOrder() {
@@ -268,7 +275,13 @@ public class Grid2Strategy extends AbstractStrategy {
 		if(orderbook == null) return;
 
 		int orderPrice = BigDecimal.valueOf(orderbook.getBidTopPrice(1)[0]).setScale(0, RoundingMode.DOWN).intValue();
-		orderPrice -= orderPrice % priceRange;
+		if(placeFirst) {
+			orderPrice -= orderPrice % priceRange;
+			placeFirst = false;
+		} else {
+			orderPrice -= orderPrice % priceRange;
+			orderPrice -= priceRange;
+		}
 		
 		for(int i = 0 ; i < orderLevel ;) {
 			BigDecimal price = BigDecimal.valueOf(orderPrice - (i * priceRange));
@@ -308,6 +321,32 @@ public class Grid2Strategy extends AbstractStrategy {
 				pause = true;
 			}
 		}
+	}
+	
+	private void closeFarOpenOrder() {
+		if(setOpenPrice.size() > orderLevel + 1) {
+			Collection<BigDecimal> collection = mapOrderIdToPrice.values();
+			List<BigDecimal> lst = new ArrayList<>(collection);
+			Collections.sort(lst);
+			
+			List<String> lstRemoveOrderId = new ArrayList<>();
+			for(int i = 0 ; i < lst.size() - orderLevel - 1 ; i++) {
+				int index = i;
+				mapOrderIdToPrice.forEach((orderId, price) -> {
+					if(price.equals(lst.get(index))) {
+						lstRemoveOrderId.add(orderId);
+					}
+				});
+			}
+			
+			for(String orderId : lstRemoveOrderId) {
+				if(cancelOrder(orderId)) {
+					BigDecimal price = mapOrderIdToPrice.remove(orderId);
+					setOpenPrice.remove(price.doubleValue());
+				}
+			}
+		}
+		
 	}
 	
 	private void cancelAllOpenOrder() {

@@ -58,7 +58,7 @@ public class TestFillStrategy extends AbstractStrategy {
 		Date date = null;
 		try {
 			sdf.setTimeZone(TimeZone.getTimeZone("GMT+8"));
-			date = sdf.parse("2021-08-31 08:40:00");
+			date = sdf.parse("2021-08-31 15:15:00");
 //			date = sdf.parse("2021-08-27 00:00:00");
 		} catch (ParseException e) {
 			e.printStackTrace();
