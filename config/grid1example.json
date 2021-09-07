@@ -1,0 +1,30 @@
+{
+  "generalSettings": [
+    {
+      "exchange": "BTSE",
+      "env": "production",
+      "symbol": [
+        "ETHPFC"
+      ],
+      "user": [
+        {
+          "name": "shawn",
+          "apiKey": "111",
+          "secret": "222"
+        }
+      ]
+    }
+  ],
+  "customizeSettings": {
+    "priceRange": 10,
+    "firstContractSize": 10,
+    "stopProfitType": "fix",
+    "stopProfit": 20,
+    "fee": 0.0004,
+	"tickSize": 0.05,
+	"orderLevel": 5,
+	"lineNotify": "333",
+	"remainQty": 10,
+	"remainFirstOrderPrice": 3357
+  }
+}
