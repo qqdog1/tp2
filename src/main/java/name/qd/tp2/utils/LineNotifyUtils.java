@@ -24,6 +24,14 @@ public class LineNotifyUtils {
 		requestBuilder.addHeader("Authorization", "Bearer " + token);
 	}
 	
+	public void sendMessage(String ... message) {
+		StringBuilder sb = new StringBuilder();
+		for(String msg : message) {
+			sb.append(msg).append(" ");
+		}
+		sendMessage(sb.toString());
+	}
+	
 	public void sendMessage(String message) {
 		FormBody.Builder bodyBuilder = new FormBody.Builder();
 		bodyBuilder.addEncoded("message", message);

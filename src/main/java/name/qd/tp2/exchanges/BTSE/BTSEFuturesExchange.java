@@ -317,6 +317,7 @@ public class BTSEFuturesExchange extends AbstractExchange {
 		String responseString = null;
 		try {
 			responseString = sendRequest(request);
+			// TODO
 		} catch (IOException e) {
 			log.error("query balance failed.", e);
 		}
@@ -380,6 +381,7 @@ public class BTSEFuturesExchange extends AbstractExchange {
 		fill.setFillPrice(node.get("avgFillPrice").asText());
 		fill.setOrderPrice(node.get("price").asText());
 		fill.setQty(node.get("size").asText());
+		fill.setFee(node.get("feeAmount").asText());
 		fill.setTimestamp(node.get("timestamp").asLong());
 
 		if (strategyName != null) {
@@ -404,6 +406,7 @@ public class BTSEFuturesExchange extends AbstractExchange {
 			fill.setFillPrice(jsonNode.get("filledPrice").asText());
 			fill.setOrderPrice(jsonNode.get("price").asText());
 			fill.setQty(jsonNode.get("filledSize").asText());
+			fill.setFee(jsonNode.get("feeAmount").asText());
 			fill.setTimestamp(jsonNode.get("timestamp").asLong());
 			lst.add(fill);
 		}

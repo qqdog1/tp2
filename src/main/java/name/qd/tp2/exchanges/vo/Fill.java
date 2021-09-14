@@ -10,6 +10,7 @@ public class Fill {
 	private String fillPrice;
 	private String orderPrice;
 	private String qty;
+	private String fee;
 	private long timestamp;
 	public String getUserName() {
 		return userName;
@@ -46,6 +47,12 @@ public class Fill {
 	}
 	public void setQty(String qty) {
 		this.qty = qty;
+	}
+	public String getFee() {
+		return fee;
+	}
+	public void setFee(String fee) {
+		this.fee = fee;
 	}
 	public BuySell getBuySell() {
 		return buySell;

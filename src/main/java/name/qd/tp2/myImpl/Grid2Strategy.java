@@ -340,10 +340,9 @@ public class Grid2Strategy extends AbstractStrategy {
 			}
 			
 			for(String orderId : lstRemoveOrderId) {
-				if(cancelOrder(orderId)) {
-					BigDecimal price = mapOrderIdToPrice.remove(orderId);
-					setOpenPrice.remove(price.doubleValue());
-				}
+				cancelOrder(orderId);
+				BigDecimal price = mapOrderIdToPrice.remove(orderId);
+				setOpenPrice.remove(price.doubleValue());
 			}
 		}
 		

@@ -18,7 +18,7 @@
   "customizeSettings": {
     "priceRange": 10,
     "firstContractSize": 10,
-    "stopProfitType": "fix",
+    "stopProfitType": "FIX",
     "stopProfit": 20,
     "fee": 0.0004,
 	"tickSize": 0.05,
