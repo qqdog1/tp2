@@ -451,8 +451,8 @@ public class GIGStrategy extends AbstractStrategy {
 		prop.setProperty("log4j.configurationFile", "./config/log4j2.xml");
 		
 		try {
-			String configPath = "./config/gig.json";
-			GridStrategy strategy = new GridStrategy(new JsonStrategyConfig(configPath));
+			String configPath = "./config/gigTestnet.json";
+			GIGStrategy strategy = new GIGStrategy(new JsonStrategyConfig(configPath));
 			strategy.start();
 		} catch (Exception e) {
 			e.printStackTrace();
