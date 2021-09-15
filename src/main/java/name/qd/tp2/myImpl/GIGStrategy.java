@@ -145,6 +145,9 @@ public class GIGStrategy extends AbstractStrategy {
 		
 		// 刪掉太遠的單
 		cancelFarG2OpenOrder();
+		
+		// 出場價格大於G1停利單的G2單 全部以G1停利價格掛單
+		checkG2Order();
 	}
 	
 	private void checkFill() {
@@ -188,6 +191,8 @@ public class GIGStrategy extends AbstractStrategy {
 					log.info("G1停利單完全成交");
 					g1StopProfitOrderId = null;
 					calcG1Profit(fill);
+					
+					// TODO G1單完全成交後要如何處裡G2剩下的單
 				} else {
 					log.info("G1停利單部分成交");
 					calcG1Profit(fill);
@@ -265,7 +270,7 @@ public class GIGStrategy extends AbstractStrategy {
 	
 	private void checkG1OrderWithCurrentPrice() {
 		// 還沒成交的狀態下
-		if(position.compareTo(BigDecimal.ZERO) == 0) {
+		if(g1Position.compareTo(BigDecimal.ZERO) == 0) {
 			Orderbook orderbook = exchangeManager.getOrderbook(ExchangeManager.BTSE_EXCHANGE_NAME, symbol);
 			if(orderbook != null) {
 				double price = orderbook.getBidTopPrice(1)[0];
@@ -328,6 +333,11 @@ public class GIGStrategy extends AbstractStrategy {
 		}
 	}
 	
+	// 出場價格大於G1停利單的G2單 全部以G1停利價格掛單
+	private void checkG2Order() {
+		
+	}
+	
 	private void placeG1LevelOrder(int startLevel, double basePrice) {
 		for(int i = 1; i <= g1OrderLevel ; i++) {
 			basePrice = basePrice - (g1PriceRange * Math.pow(2, i-1));
@@ -338,7 +348,7 @@ public class GIGStrategy extends AbstractStrategy {
 					if(i == 1) {
 						g1FirstOrderPrice = basePrice;
 					}
-					log.info("G1 鋪單 {} {} {}", i, basePrice, qty);
+					log.info("G1 鋪單 {} {} {} {}", i, basePrice, qty, orderId);
 					setG1OrderId.add(orderId);
 				} else {
 					log.error("G1 鋪單失敗 {} {} {}", i, basePrice, qty);
@@ -400,7 +410,13 @@ public class GIGStrategy extends AbstractStrategy {
 		
 		cost = cost.add(price.multiply(qty)).add(fee);
 		position = position.add(qty);
-		averagePrice = cost.divide(position);
+		if(position.compareTo(BigDecimal.ZERO) != 0) {
+			averagePrice = cost.divide(position, 8, RoundingMode.DOWN);
+		} else {
+			averagePrice = BigDecimal.ZERO;
+		}
+		
+		log.info("當前成本 {}, {} {}", cost, position, averagePrice);
 	}
 	
 	private void calcG1Profit(Fill fill) {
@@ -418,6 +434,7 @@ public class GIGStrategy extends AbstractStrategy {
 				lineNotifyUtils.sendMessage("G1刪單失敗:", orderId);
 			}
 		}
+		setG1OrderId.clear();
 	}
 	
 	private void cancelAllG2OpenOrder() {
@@ -440,7 +457,7 @@ public class GIGStrategy extends AbstractStrategy {
 	
 	private boolean cancelOrder(String orderId) {
 		boolean isSuccess = false;
-		if(orderId == null) {
+		if(orderId != null) {
 			return exchangeManager.cancelOrder(strategyName, ExchangeManager.BTSE_EXCHANGE_NAME, userName, symbol, orderId);
 		}
 		return isSuccess;

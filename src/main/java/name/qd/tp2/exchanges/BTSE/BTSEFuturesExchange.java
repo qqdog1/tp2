@@ -381,7 +381,8 @@ public class BTSEFuturesExchange extends AbstractExchange {
 		fill.setFillPrice(node.get("avgFillPrice").asText());
 		fill.setOrderPrice(node.get("price").asText());
 		fill.setQty(node.get("size").asText());
-		fill.setFee(node.get("feeAmount").asText());
+		// BTSE websocket 沒有提供fee
+//		fill.setFee();
 		fill.setTimestamp(node.get("timestamp").asLong());
 
 		if (strategyName != null) {
