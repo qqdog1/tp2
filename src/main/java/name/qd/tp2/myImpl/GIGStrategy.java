@@ -38,7 +38,7 @@ import name.qd.tp2.utils.PriceUtils;
  * 等差網格只要單向成交 就重新計算預期均價及預期停利
  * 因為要停到利表示等差反向單必先成交
  * 
- * 回復交易
+ * 回復交易 可用FileCache
  * 均價及未平量可算出各單(等比單及等差單)成本??
  */
 public class GIGStrategy extends AbstractStrategy {
@@ -254,7 +254,7 @@ public class GIGStrategy extends AbstractStrategy {
 		}
 		
 		// g1 有單且成交 鋪g2單
-		else if(position.compareTo(BigDecimal.ZERO) > 0) {
+		else if(g1Position.compareTo(BigDecimal.ZERO) > 0) {
 			// g2 單鋪在 average price 下一個 g2 price range
 			Orderbook orderbook = exchangeManager.getOrderbook(ExchangeManager.BTSE_EXCHANGE_NAME, symbol);
 			if(orderbook == null) return;
@@ -275,7 +275,7 @@ public class GIGStrategy extends AbstractStrategy {
 			if(orderbook != null) {
 				double price = orderbook.getBidTopPrice(1)[0];
 				if(price > g1FirstOrderPrice + g1PriceRange + g1ChasingPrice.doubleValue()) {
-					log.info("價格上漲超過追價 向上墊高G1 orders");
+					log.info("價格上漲超過追價 currentPrice:{}, 向上墊高G1 orders", price);
 					// 刪除G1 orders
 					cancelAllG1OpenOrder();
 				}
@@ -309,13 +309,13 @@ public class GIGStrategy extends AbstractStrategy {
 	}
 	
 	private void cancelFarG2OpenOrder() {
-		if(setG2OpenPrice.size() > g2OrderLevel + 1) {
+		if(setG2OpenPrice.size() > g2OrderLevel) {
 			Collection<BigDecimal> collection = mapG2OrderIdToPrice.values();
 			List<BigDecimal> lst = new ArrayList<>(collection);
 			Collections.sort(lst);
 			
 			List<String> lstRemoveOrderId = new ArrayList<>();
-			for(int i = 0 ; i < lst.size() - g2OrderLevel - 1 ; i++) {
+			for(int i = 0 ; i < lst.size() - g2OrderLevel; i++) {
 				int index = i;
 				mapG2OrderIdToPrice.forEach((orderId, price) -> {
 					if(price.equals(lst.get(index))) {
