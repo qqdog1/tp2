@@ -260,13 +260,13 @@ public class Grid2Strategy extends AbstractStrategy {
 	private BigDecimal getStopProfitPrice(BigDecimal price) {
 		// TODO 目前只能用fix
 		// TODO 要加入手續費計算 不然價格大fix加上去可能還cover不掉手續費
-		if("fix".equals(stopProfitType)) {
+		if("FIX".equals(stopProfitType)) {
 			return price.add(BigDecimal.valueOf(stopProfit));
 //		} else if("rate".equals(stopProfitType)) {
 //			return (int) (price * stopProfit);
 		} else {
 			log.error("未知停利方式...");
-			return BigDecimal.ZERO;
+			return price.add(BigDecimal.valueOf(stopProfit));
 		}
 	}
 	
