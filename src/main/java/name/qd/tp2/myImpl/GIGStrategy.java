@@ -38,8 +38,10 @@ import name.qd.tp2.utils.PriceUtils;
  * 等差網格只要單向成交 就重新計算預期均價及預期停利
  * 因為要停到利表示等差反向單必先成交
  * 
- * 回復交易 可用FileCache
+ * TODO 回復交易 可用FileCache
  * 均價及未平量可算出各單(等比單及等差單)成本??
+ * TODO 均價下降後 未成交的G1單是否要向下鋪???
+ * TODO G2為平單高於G1停利單 要怎麼出場
  */
 public class GIGStrategy extends AbstractStrategy {
 	private Logger log = LoggerFactory.getLogger(GIGStrategy.class);
@@ -147,7 +149,7 @@ public class GIGStrategy extends AbstractStrategy {
 		cancelFarG2OpenOrder();
 		
 		// 出場價格大於G1停利單的G2單 全部以G1停利價格掛單
-		// 
+		// TODO 考慮G2這種停利單的部分成交
 		checkG2Order();
 	}
 	
@@ -194,7 +196,8 @@ public class GIGStrategy extends AbstractStrategy {
 					g1StopProfitOrderId = null;
 					calcG1Profit(fill);
 					
-					// TODO G1單完全成交後要如何處裡G2剩下的單
+					cancelAllG1OpenOrder();
+					cancelAllG2OpenOrder();
 				} else {
 					log.info("G1停利單部分成交");
 					calcG1Profit(fill);
