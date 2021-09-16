@@ -147,6 +147,7 @@ public class GIGStrategy extends AbstractStrategy {
 		cancelFarG2OpenOrder();
 		
 		// 出場價格大於G1停利單的G2單 全部以G1停利價格掛單
+		// 
 		checkG2Order();
 	}
 	
@@ -163,6 +164,7 @@ public class GIGStrategy extends AbstractStrategy {
 			// is g1 order
 			if(setG1OrderId.contains(orderId)) {
 				// g1單成交 
+				log.info("G1 開倉成交 {} {} {}", fill.getFillPrice(), fill.getQty(), orderId);
 				// 算新的成本
 				g1Position = g1Position.add(new BigDecimal(fill.getQty()));
 				calcCost(fill);
@@ -207,6 +209,8 @@ public class GIGStrategy extends AbstractStrategy {
 				 */
 				
 				// g2 fill 
+				log.info("G2 開倉成交 {} {} {}", fill.getFillPrice(), fill.getQty(), orderId);
+				
 				g2Position = g2Position.add(new BigDecimal(fill.getQty()));
 				buyCount++;
 				// 計算新均價
@@ -222,6 +226,9 @@ public class GIGStrategy extends AbstractStrategy {
 				// g2停利 
 				g2Position = g2Position.subtract(new BigDecimal(fill.getQty()));
 				sellCount++;
+				//
+				BigDecimal price = mapG2StopProfitOrderIdToPrice.remove(orderId);
+				setG2OpenPrice.remove(price.subtract(g2StopProfit).doubleValue());
 				// 計算新均價
 				calcCost(fill);
 				// 刪除舊G1停利單
