@@ -1,5 +1,6 @@
 package name.qd.tp2.myImpl;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.ZonedDateTime;
 import java.util.HashSet;
@@ -124,8 +125,7 @@ public class GridStrategy extends AbstractStrategy {
 		// 策略剛啟動鋪單
 		if (setOrderId.size() == 0) {
 			Orderbook orderbook = exchangeManager.getOrderbook(ExchangeManager.BTSE_EXCHANGE_NAME, symbol);
-			if (orderbook == null)
-				return;
+			if (orderbook == null) return;
 			double price = orderbook.getBidTopPrice(1)[0];
 			// 紀錄下第一單時 當下的市場價格
 			firstOrderMarketPrice = BigDecimal.valueOf(price);
@@ -221,6 +221,12 @@ public class GridStrategy extends AbstractStrategy {
 				// 下新的停利單
 				targetPrice = PriceUtils.getStopProfitPrice(BigDecimal.valueOf(averagePrice), stopProfitType, stopProfit);
 				placeStopProfitOrder();
+			}
+			
+			try {
+				grid1CacheManager.writeCacheToFile();
+			} catch (IOException e) {
+				log.error("write cache to file failed.", e);
 			}
 		}
 	}
