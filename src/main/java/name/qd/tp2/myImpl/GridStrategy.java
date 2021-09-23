@@ -116,6 +116,8 @@ public class GridStrategy extends AbstractStrategy {
 		if (grid1StrategyStatus == null) {
 			grid1StrategyStatus = new Grid1StrategyStatus();
 			grid1CacheManager.put(grid1StrategyStatus);
+		} else {
+			// TODO 鋪單
 		}
 	}
 
@@ -152,8 +154,7 @@ public class GridStrategy extends AbstractStrategy {
 			Orderbook orderbook = exchangeManager.getOrderbook(ExchangeManager.BTSE_EXCHANGE_NAME, symbol);
 			if (orderbook != null) {
 				double price = orderbook.getBidTopPrice(1)[0];
-				BigDecimal stopProfitPrice = PriceUtils.getStopProfitPrice(firstOrderMarketPrice.subtract(priceRange),
-						stopProfitType, stopProfit);
+				BigDecimal stopProfitPrice = PriceUtils.getStopProfitPrice(firstOrderMarketPrice.subtract(priceRange), stopProfitType, stopProfit);
 				if (price >= stopProfitPrice.doubleValue()) {
 					log.info("價格上漲 重新鋪單");
 					// 刪除所有鋪單
@@ -176,37 +177,36 @@ public class GridStrategy extends AbstractStrategy {
 //		List<Fill> lstFill = exchangeManager.getFill(strategyName, ExchangeManager.BTSE_EXCHANGE_NAME);
 		for (Fill fill : lstFill) {
 			// 濾掉不是此策略的成交
-			if (!setOrderId.contains(fill.getOrderId()) && !fill.getOrderId().equals(stopProfitOrderId))
-				continue;
+			if (!setOrderId.contains(fill.getOrderId()) && !fill.getOrderId().equals(stopProfitOrderId)) continue;
 
-			log.debug("收到成交 {} {} {}", fill.getOrderPrice(), fill.getQty(), fill.getOrderId());
+			log.debug("收到成交 {} {} {}", fill.getFillPrice(), fill.getQty(), fill.getOrderId());
 			int qty = Integer.parseInt(fill.getQty());
-			double orderPrice = Double.parseDouble(fill.getOrderPrice());
+			double fillPrice = Double.parseDouble(fill.getFillPrice());
 			if (fill.getOrderId().equals(stopProfitOrderId)) {
-				// 停利單成交
 				grid1StrategyStatus.setPosition(grid1StrategyStatus.getPosition() - qty);
-				if (grid1StrategyStatus.getPosition() == firstContractSize) {
-					log.info("停利單完全成交");
+				// 停利單成交
+				if (grid1StrategyStatus.getPosition() == 0) {
+					log.info("停利單完全成交, {} {}", fill.getFillPrice(), fill.getQty());
 					lineNotifyUtils.sendMessage(strategyName + "停利單完全成交");
 					stopProfitOrderId = null;
 					// 計算獲利
-					calcProfit(qty, orderPrice);
-					// 重算成本
-					grid1StrategyStatus.setAveragePrice(orderPrice);
+					calcProfit(qty, fillPrice);
+					// 清除成本
+					grid1StrategyStatus.setAveragePrice(0);
 					// 重算目標價
 					targetPrice = PriceUtils.getStopProfitPrice(BigDecimal.valueOf(grid1StrategyStatus.getAveragePrice()), stopProfitType, stopProfit);
 					// 刪除之前鋪單
 					cancelOrder(null);
 				} else {
-					log.warn("停利單部分成交 {}, {}", fill.getOrderPrice(), fill.getQty());
+					log.warn("停利單部分成交 {}, {}", fill.getFillPrice(), fill.getQty());
 					lineNotifyUtils.sendMessage(strategyName + "停利單部分成交" + fill.getQty());
-					calcProfit(qty, orderPrice);
+					calcProfit(qty, fillPrice);
 				}
 			} else {
 				// 一般單成交
 
 				// 重算成本 改停利單
-				double averagePrice = ((grid1StrategyStatus.getPosition() * grid1StrategyStatus.getAveragePrice()) + (orderPrice * qty)) / (grid1StrategyStatus.getPosition() + qty);
+				double averagePrice = ((grid1StrategyStatus.getPosition() * grid1StrategyStatus.getAveragePrice()) + (fillPrice * qty)) / (grid1StrategyStatus.getPosition() + qty);
 				grid1StrategyStatus.setAveragePrice(averagePrice);
 				grid1StrategyStatus.setPosition(grid1StrategyStatus.getPosition() + qty);
 				// 清除舊的停利單
@@ -251,15 +251,13 @@ public class GridStrategy extends AbstractStrategy {
 	}
 
 	private void placeStopProfitOrder() {
-		if (grid1StrategyStatus.getPosition() - firstContractSize > 0) {
-			String orderId = sendOrder(BuySell.SELL, targetPrice.doubleValue(), grid1StrategyStatus.getPosition() - firstContractSize);
-			if (orderId != null) {
-				stopProfitOrderId = orderId;
-				log.info("下停利單 {} {} {}", targetPrice, grid1StrategyStatus.getPosition() - firstContractSize, orderId);
-			} else {
-				log.warn("下停利單失敗 {} {}", targetPrice, grid1StrategyStatus.getPosition() - firstContractSize);
-				lineNotifyUtils.sendMessage(strategyName + "下停利單失敗");
-			}
+		String orderId = sendOrder(BuySell.SELL, targetPrice.doubleValue(), grid1StrategyStatus.getPosition());
+		if (orderId != null) {
+			stopProfitOrderId = orderId;
+			log.info("下停利單 {} {} {}", targetPrice, grid1StrategyStatus.getPosition(), orderId);
+		} else {
+			log.warn("下停利單失敗 {} {}", targetPrice, grid1StrategyStatus.getPosition());
+			lineNotifyUtils.sendMessage(strategyName + "下停利單失敗");
 		}
 	}
 
