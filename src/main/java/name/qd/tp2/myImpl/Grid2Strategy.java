@@ -2,25 +2,22 @@ package name.qd.tp2.myImpl;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
-import java.util.TimeZone;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import name.qd.tp2.constants.BuySell;
+import name.qd.tp2.constants.StopProfitType;
 import name.qd.tp2.exchanges.ExchangeManager;
 import name.qd.tp2.exchanges.vo.Fill;
 import name.qd.tp2.exchanges.vo.Orderbook;
@@ -28,6 +25,7 @@ import name.qd.tp2.strategies.AbstractStrategy;
 import name.qd.tp2.strategies.config.JsonStrategyConfig;
 import name.qd.tp2.strategies.config.StrategyConfig;
 import name.qd.tp2.utils.LineNotifyUtils;
+import name.qd.tp2.utils.PriceUtils;
 
 /**
 	進場: 現價向下吸單 沒跌N元吸M
@@ -49,7 +47,6 @@ public class Grid2Strategy extends AbstractStrategy {
 	private String userName = "shawn";
 
 	// 自己設定一些策略內要用的變數
-	private SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 	private String symbol = "ETHPFC";
 	private int position = 0;
 	private double averagePrice = 0;
@@ -61,13 +58,15 @@ public class Grid2Strategy extends AbstractStrategy {
 	// 這個策略要用到的值 全部都設定在config
 	private int priceRange;
 	private int orderSize;
-	private String stopProfitType;
-	private double stopProfit;
-	private double fee;
+	private StopProfitType stopProfitType;
+	private BigDecimal stopProfit;
+	private BigDecimal tickSize;
 	private int orderLevel;
 	private String lineNotify;
 	private int maxContractSize;
 	private int reportMinute;
+	private BigDecimal ceilingPrice;
+	private BigDecimal floorPrice;
 	private int notifyMinute = -1;
 	private String startTime;
 	
@@ -90,25 +89,20 @@ public class Grid2Strategy extends AbstractStrategy {
 		startTime = strategyConfig.getCustomizeSettings("startTime");
 		priceRange = Integer.parseInt(strategyConfig.getCustomizeSettings("priceRange"));
 		orderSize = Integer.parseInt(strategyConfig.getCustomizeSettings("orderSize"));
-		stopProfitType = strategyConfig.getCustomizeSettings("stopProfitType");
-		stopProfit = Double.parseDouble(strategyConfig.getCustomizeSettings("stopProfit"));
-		fee = Double.parseDouble(strategyConfig.getCustomizeSettings("fee"));
+		stopProfitType = StopProfitType.valueOf(strategyConfig.getCustomizeSettings("stopProfitType"));
+		stopProfit = new BigDecimal(strategyConfig.getCustomizeSettings("stopProfit"));
+		tickSize = new BigDecimal(strategyConfig.getCustomizeSettings("fee"));
 		orderLevel = Integer.parseInt(strategyConfig.getCustomizeSettings("orderLevel"));
 		lineNotify = strategyConfig.getCustomizeSettings("lineNotify");
 		maxContractSize = Integer.parseInt(strategyConfig.getCustomizeSettings("maxContractSize"));
 		lineNotifyUtils = new LineNotifyUtils(lineNotify);
 		reportMinute = Integer.parseInt(strategyConfig.getCustomizeSettings("reportMinute"));
+		ceilingPrice = new BigDecimal(strategyConfig.getCustomizeSettings("ceilingPrice"));
+		floorPrice = new BigDecimal(strategyConfig.getCustomizeSettings("floorPrice"));
 	}
 	
 	@Override
 	public void strategyAction() {
-		// 0. 依照歷史成交紀錄推斷上次沒結束的交易
-		if(!start) {
-			// 有點問題
-			checkRemainOrder();
-			start = true;
-		}
-		
 		// 1. 檢查成交
 		//    有成交更新均價
 //		checkFill();
@@ -127,78 +121,6 @@ public class Grid2Strategy extends AbstractStrategy {
 		
 		// 5. 刪掉太遠的買單
 		closeFarOpenOrder();
-	}
-	
-	private void checkRemainOrder() {
-		if(startTime != null) {
-			Date date = null;
-			try {
-				sdf.setTimeZone(TimeZone.getTimeZone("GMT+8"));
-				date = sdf.parse(startTime);
-			} catch (ParseException e) {
-				log.error("parse date failed.", e);
-			}
-			
-			long from = date.getTime();
-			ZonedDateTime zonedDateTime = ZonedDateTime.now();
-			long to = zonedDateTime.toEpochSecond() * 1000;
-			lastFillTime = to;
-			
-			boolean isLast = false;
-			while(!isLast) {
-				List<Fill> lst = exchangeManager.getFillHistory(ExchangeManager.BTSE_EXCHANGE_NAME, userName, symbol, from, to);
-				log.info("get fill size: {}", lst.size());
-				for(Fill fill : lst) {
-					int qty = Integer.parseInt(fill.getQty());
-					if(qty == 1) {
-						calcAvgPrice(fill);
-						BigDecimal price = new BigDecimal(fill.getOrderPrice());
-						if(fill.getBuySell() == BuySell.BUY) {
-							if(lstSell.contains(price.add(BigDecimal.valueOf(stopProfit)))) {
-								if(!lstSell.remove(price.add(BigDecimal.valueOf(stopProfit)))) {
-									log.error("刪除cache失敗");
-								}
-							} else {
-								lstBuy.add(price);
-							}
-						} else if(fill.getBuySell() == BuySell.SELL) {
-							if(lstBuy.contains(price.subtract(BigDecimal.valueOf(stopProfit)))) {
-								if(!lstBuy.remove(price.subtract(BigDecimal.valueOf(stopProfit)))) {
-									log.error("刪除cache失敗");
-								}
-							} else {
-								lstSell.add(price);
-							}
-						} else {
-							log.error("unknown side");
-						}
-					}
-					to = fill.getTimestamp();
-				}
-				
-				if(lst.size() < 100) {
-					isLast = true;
-				}
-			}
-			
-			// 補單
-			// 遺留買單成交 補停利單 補cache
-			lstBuy.forEach((price) -> {
-				// 避免再下買單鋪單
-				setOpenPrice.add(price.doubleValue());
-				// 下停利單
-				placeStopProfitOrder(getStopProfitPrice(price));
-//				log.info("鋪賣 {}", getStopProfitPrice(price));
-				
-			});
-			
-			// 遺留賣單成交 補開倉單
-			// 會沒算到成本 直到賣單清零重開才會算對
-			lstSell.forEach((price) -> {
-				sendOrder(BuySell.BUY, price.subtract(BigDecimal.valueOf(stopProfit)).doubleValue(), orderSize);
-//				log.info("鋪買 {}", price.subtract(BigDecimal.valueOf(stopProfit)).doubleValue());
-			});
-		}
 	}
 	
 	private void placeStopProfitOrder(BigDecimal price) {
@@ -235,9 +157,9 @@ public class Grid2Strategy extends AbstractStrategy {
 			if(mapOrderIdToPrice.containsKey(orderId)) {
 				// 開倉單成交 下停利單
 				BigDecimal price = mapOrderIdToPrice.remove(orderId);
-				placeStopProfitOrder(getStopProfitPrice(price));
+				placeStopProfitOrder(PriceUtils.getStopProfitPrice(price, stopProfitType, stopProfit));
 				
-				log.info("開倉單成交: {} {} {}, 下對應停利: {}", fill.getBuySell(), fill.getFillPrice(), fill.getQty(), getStopProfitPrice(price));
+				log.info("開倉單成交: {} {} {}, 下對應停利: {}", fill.getBuySell(), fill.getFillPrice(), fill.getQty(), PriceUtils.getStopProfitPrice(price, stopProfitType, stopProfit));
 				buyCount++;
 				// 算均價
 				calcAvgPrice(fill);
@@ -245,9 +167,9 @@ public class Grid2Strategy extends AbstractStrategy {
 				// 停利單成交
 				BigDecimal price = mapStopProfitOrderId.remove(orderId);
 				// TODO 目前回算open order價格是fix方式
-				setOpenPrice.remove(price.subtract(BigDecimal.valueOf(stopProfit)).doubleValue());
+				setOpenPrice.remove(price.subtract(stopProfit).doubleValue());
 				
-				log.info("停利單成交: {} {} {}, 對應開倉應於: {}", fill.getBuySell(), fill.getFillPrice(), fill.getQty(), price.subtract(BigDecimal.valueOf(stopProfit)));
+				log.info("停利單成交: {} {} {}, 對應開倉應於: {}", fill.getBuySell(), fill.getFillPrice(), fill.getQty(), price.subtract(stopProfit));
 				sellCount++;
 				// 算均價
 				calcAvgPrice(fill);
@@ -257,24 +179,20 @@ public class Grid2Strategy extends AbstractStrategy {
 		}
 	}
 	
-	private BigDecimal getStopProfitPrice(BigDecimal price) {
-		// TODO 目前只能用fix
-		// TODO 要加入手續費計算 不然價格大fix加上去可能還cover不掉手續費
-		if("FIX".equals(stopProfitType)) {
-			return price.add(BigDecimal.valueOf(stopProfit));
-//		} else if("rate".equals(stopProfitType)) {
-//			return (int) (price * stopProfit);
-		} else {
-			log.error("未知停利方式...");
-			return price.add(BigDecimal.valueOf(stopProfit));
-		}
-	}
-	
 	private void placeOrder() {
 		Orderbook orderbook = exchangeManager.getOrderbook(ExchangeManager.BTSE_EXCHANGE_NAME, symbol);
 		if(orderbook == null) return;
 
 		int orderPrice = BigDecimal.valueOf(orderbook.getBidTopPrice(1)[0]).setScale(0, RoundingMode.DOWN).intValue();
+		
+		if(orderPrice - stopProfit.intValue() > ceilingPrice.intValue()) {
+//			log.info("價格已到天花板 {} {}", orderPrice, ceilingPrice.toPlainString());
+			return;
+		} else if(orderPrice < floorPrice.intValue()) {
+//			log.info("價格已到地板 {} {}", orderPrice, floorPrice.toPlainString());
+			return;
+		}
+		
 		if(placeFirst) {
 			orderPrice -= orderPrice % priceRange;
 			placeFirst = false;
@@ -366,13 +284,11 @@ public class Grid2Strategy extends AbstractStrategy {
 		double fillPrice = Double.parseDouble(fill.getFillPrice());
 		if(BuySell.BUY == fill.getBuySell()) {
 			position += qty;
-			double feeCost = qty * fillPrice * fee;
-			cost = cost + (qty * fillPrice) + feeCost;
+			cost = cost + (qty * fillPrice) + Double.valueOf(fill.getFee());
 			averagePrice = cost / position;
 		} else {
 			position -= qty;
-			double feeCost = qty * fillPrice * fee;
-			cost = cost - (qty * fillPrice) + feeCost;
+			cost = cost - (qty * fillPrice) + Double.valueOf(fill.getFee());
 			averagePrice = cost / position;
 		}
 		log.info("position: {}, cost: {}, avgPrice: {}", position, cost, averagePrice);

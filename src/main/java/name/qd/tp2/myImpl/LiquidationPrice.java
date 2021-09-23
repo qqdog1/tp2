@@ -3,8 +3,8 @@ package name.qd.tp2.myImpl;
 public class LiquidationPrice {
 
 	public static void main(String[] args) {
-		double balance = 5200;
-		double currentPrice = 3300;
+		double balance = 10000;
+		double currentPrice = 3000;
 		double minMarketPrice = 0;
 		double priceRange = 3;
 		double contractSize = 1;
