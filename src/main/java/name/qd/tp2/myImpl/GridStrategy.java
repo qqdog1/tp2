@@ -2,6 +2,7 @@ package name.qd.tp2.myImpl;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.ZonedDateTime;
 import java.util.HashSet;
 import java.util.List;
@@ -263,6 +264,7 @@ public class GridStrategy extends AbstractStrategy {
 	}
 
 	private String sendOrder(BuySell buySell, double price, double qty) {
+		PriceUtils.trimPriceWithTicksize(BigDecimal.valueOf(price), tickSize, RoundingMode.UP);
 		return exchangeManager.sendOrder(strategyName, ExchangeManager.BTSE_EXCHANGE_NAME, userName, symbol, buySell, price, qty);
 	}
 

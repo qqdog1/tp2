@@ -155,7 +155,9 @@ public class BTSEFuturesExchange extends AbstractExchange {
 	@Override
 	public String sendLimitOrder(String userName, String strategyName, String symbol, BuySell buySell, double price, double qty) {
 		ObjectNode objectNode = JsonUtils.objectMapper.createObjectNode();
-		objectNode.put("price", BigDecimal.valueOf(price).setScale(1, RoundingMode.DOWN).doubleValue());
+		// 不行做在這邊 每個symbol的ticksize 不一樣
+//		objectNode.put("price", BigDecimal.valueOf(price).setScale(1, RoundingMode.DOWN).doubleValue());
+		objectNode.put("price", price);
 		objectNode.put("side", buySell.name());
 		objectNode.put("size", qty);
 		objectNode.put("symbol", symbol);
