@@ -360,7 +360,7 @@ public class BTSEFuturesExchange extends AbstractExchange {
 	}
 
 	private void processNotification(JsonNode node) {
-		System.out.println(node.toString());
+//		System.out.println(node.toString());
 		for (JsonNode notificationNode : node.get("data")) {
 			int orderStatus = notificationNode.get("status").asInt();
 			if (orderStatus == 4 || orderStatus == 5) {
