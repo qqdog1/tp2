@@ -19,10 +19,10 @@ import org.slf4j.LoggerFactory;
 import name.qd.tp2.constants.BuySell;
 import name.qd.tp2.exchanges.AbstractExchange;
 import name.qd.tp2.exchanges.vo.Fill;
+import name.qd.tp2.exchanges.vo.Orderbook;
 
 public class FakeExchange extends AbstractExchange {
 	private Logger log = LoggerFactory.getLogger(FakeExchange.class);
-	private final ExecutorService executor = Executors.newSingleThreadExecutor();
 	private final ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
 	
 	private Set<String> setSubscribedSymbol = new HashSet<>();
@@ -30,14 +30,11 @@ public class FakeExchange extends AbstractExchange {
 	private Map<String, String> mapOrderIdToStrategy = new HashMap<>();
 		
 	// symbol, price
-	private Map<String, Double> mapCurrentPrice = new ConcurrentHashMap<>();
-	private Map<String, Double> mapInitPrice = new HashMap<>();
-	private String[] stateLoop = new String[]{"UP_300", "CORRECTION_10", "DOWN_300", "CORRECTION_10"};
+	private Map<String, PriceSimulator> mapSymbolPrice = new HashMap<>();
 
 	// symbol, orderId, order
 	private Map<String, Map<String, Order>> mapOrders = new ConcurrentHashMap<>();
 
-	
 	public FakeExchange(String restUrl, String wsUrl) {
 		super(restUrl, wsUrl);
 		
@@ -47,7 +44,9 @@ public class FakeExchange extends AbstractExchange {
 	}
 
 	private void init() {
-		mapInitPrice.put("ETHPFC", 2900d);
+		String[] states = new String[] {StateController.UP, StateController.DOWN, StateController.UP, StateController.DOWN};
+		int[] times = new int[] {300, 200, 200, 300};
+		mapSymbolPrice.put("ETHPFC", new PriceSimulator(2900, states, times));
 	}
 	
 	@Override
@@ -112,6 +111,13 @@ public class FakeExchange extends AbstractExchange {
 		@Override
 		public void run() {
 			// orderbook
+			for(String symbol : mapSymbolPrice.keySet()) {
+				double price = mapSymbolPrice.get(symbol).next();
+				Orderbook orderbook = new Orderbook();
+				orderbook.addAsk(price + 1, 999);
+				orderbook.addBid(price - 1, 999);
+				updateOrderbook(symbol, orderbook);
+			}
 			
 			// fill
 		}
