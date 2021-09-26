@@ -58,7 +58,7 @@ public class FillRecordCSV extends AbstractStrategy {
 		
 		boolean isLast = false;
 		while(!isLast) {
-			List<Fill> lst = exchangeManager.getFillHistory(ExchangeManager.BTSE_EXCHANGE_NAME, "shawn", "ETHPFC", from, to);
+			List<Fill> lst = exchangeManager.getFillHistory(ExchangeManager.BTSE_EXCHANGE, "shawn", "ETHPFC", from, to);
 			
 			
 			for(Fill fill : lst) {

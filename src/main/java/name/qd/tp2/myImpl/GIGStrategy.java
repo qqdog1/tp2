@@ -157,7 +157,7 @@ public class GIGStrategy extends AbstractStrategy {
 		ZonedDateTime zonedDateTime = ZonedDateTime.now();
 		to = zonedDateTime.toEpochSecond() * 1000;
 		
-		List<Fill> lstFill = exchangeManager.getFillHistory(ExchangeManager.BTSE_EXCHANGE_NAME, userName, symbol, from, to);
+		List<Fill> lstFill = exchangeManager.getFillHistory(ExchangeManager.BTSE_EXCHANGE, userName, symbol, from, to);
 		if(lstFill == null) return;
 		from = to;
 		
@@ -253,7 +253,7 @@ public class GIGStrategy extends AbstractStrategy {
 	private void placeOrder() {
 		// g1 & g2 都沒單 鋪g1單
 		if(setG1OrderId.size() == 0 && mapG2OrderIdToPrice.size() == 0) {
-			Orderbook orderbook = exchangeManager.getOrderbook(ExchangeManager.BTSE_EXCHANGE_NAME, symbol);
+			Orderbook orderbook = exchangeManager.getOrderbook(ExchangeManager.BTSE_EXCHANGE, symbol);
 			if(orderbook == null) return;
 			
 			placeG1LevelOrder(1, orderbook.getBidTopPrice(1)[0]);
@@ -266,7 +266,7 @@ public class GIGStrategy extends AbstractStrategy {
 		// g1 有單且成交 鋪g2單
 		else if(g1Position.compareTo(BigDecimal.ZERO) > 0) {
 			// g2 單鋪在 average price 下一個 g2 price range
-			Orderbook orderbook = exchangeManager.getOrderbook(ExchangeManager.BTSE_EXCHANGE_NAME, symbol);
+			Orderbook orderbook = exchangeManager.getOrderbook(ExchangeManager.BTSE_EXCHANGE, symbol);
 			if(orderbook == null) return;
 			
 			BigDecimal currentPrice = BigDecimal.valueOf(orderbook.getBidTopPrice(1)[0]);
@@ -281,7 +281,7 @@ public class GIGStrategy extends AbstractStrategy {
 	private void checkG1OrderWithCurrentPrice() {
 		// 還沒成交的狀態下
 		if(g1Position.compareTo(BigDecimal.ZERO) == 0) {
-			Orderbook orderbook = exchangeManager.getOrderbook(ExchangeManager.BTSE_EXCHANGE_NAME, symbol);
+			Orderbook orderbook = exchangeManager.getOrderbook(ExchangeManager.BTSE_EXCHANGE, symbol);
 			if(orderbook != null) {
 				double price = orderbook.getBidTopPrice(1)[0];
 				if(price > g1FirstOrderPrice + g1PriceRange + g1ChasingPrice.doubleValue()) {
@@ -462,13 +462,13 @@ public class GIGStrategy extends AbstractStrategy {
 	
 	private String sendOrder(BuySell buySell, double price, double qty) {
 		double orderPrice = PriceUtils.trimPriceWithTicksize(BigDecimal.valueOf(price), tickSize, RoundingMode.UP).doubleValue();
-		return exchangeManager.sendOrder(strategyName, ExchangeManager.BTSE_EXCHANGE_NAME, userName, symbol, buySell, orderPrice, qty);
+		return exchangeManager.sendOrder(strategyName, ExchangeManager.BTSE_EXCHANGE, userName, symbol, buySell, orderPrice, qty);
 	}
 	
 	private boolean cancelOrder(String orderId) {
 		boolean isSuccess = false;
 		if(orderId != null) {
-			return exchangeManager.cancelOrder(strategyName, ExchangeManager.BTSE_EXCHANGE_NAME, userName, symbol, orderId);
+			return exchangeManager.cancelOrder(strategyName, ExchangeManager.BTSE_EXCHANGE, userName, symbol, orderId);
 		}
 		return isSuccess;
 	}

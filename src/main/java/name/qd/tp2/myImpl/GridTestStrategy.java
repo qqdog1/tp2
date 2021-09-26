@@ -63,7 +63,7 @@ public class GridTestStrategy extends AbstractStrategy {
 		// 取得未處裡的成交
 //		List<Fill> lstFill = exchangeManager.getFill(strategyName, ExchangeManager.BTSE_EXCHANGE_NAME);
 		// 取得當前orderbook的方法
-		Orderbook orderbook = exchangeManager.getOrderbook(ExchangeManager.BTSE_EXCHANGE_NAME, "ETHPFC");
+		Orderbook orderbook = exchangeManager.getOrderbook(ExchangeManager.BTSE_EXCHANGE, "ETHPFC");
 		// 還拿不到orderbook 先return
 		if(orderbook == null) return;
 		
