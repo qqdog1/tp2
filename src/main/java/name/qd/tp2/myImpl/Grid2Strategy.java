@@ -63,12 +63,10 @@ public class Grid2Strategy extends AbstractStrategy {
 	private BigDecimal tickSize;
 	private int orderLevel;
 	private String lineNotify;
-	private int maxContractSize;
 	private int reportMinute;
 	private BigDecimal ceilingPrice;
 	private BigDecimal floorPrice;
 	private int notifyMinute = -1;
-	private String startTime;
 	
 	private List<BigDecimal> lstBuy = new ArrayList<>();
 	private List<BigDecimal> lstSell = new ArrayList<>();
@@ -86,7 +84,6 @@ public class Grid2Strategy extends AbstractStrategy {
 		super(strategyConfig);
 
 		// 把設定值從config讀出來
-		startTime = strategyConfig.getCustomizeSettings("startTime");
 		priceRange = Integer.parseInt(strategyConfig.getCustomizeSettings("priceRange"));
 		orderSize = Integer.parseInt(strategyConfig.getCustomizeSettings("orderSize"));
 		stopProfitType = StopProfitType.valueOf(strategyConfig.getCustomizeSettings("stopProfitType"));
@@ -94,7 +91,6 @@ public class Grid2Strategy extends AbstractStrategy {
 		tickSize = new BigDecimal(strategyConfig.getCustomizeSettings("fee"));
 		orderLevel = Integer.parseInt(strategyConfig.getCustomizeSettings("orderLevel"));
 		lineNotify = strategyConfig.getCustomizeSettings("lineNotify");
-		maxContractSize = Integer.parseInt(strategyConfig.getCustomizeSettings("maxContractSize"));
 		lineNotifyUtils = new LineNotifyUtils(lineNotify);
 		reportMinute = Integer.parseInt(strategyConfig.getCustomizeSettings("reportMinute"));
 		ceilingPrice = new BigDecimal(strategyConfig.getCustomizeSettings("ceilingPrice"));
@@ -117,7 +113,7 @@ public class Grid2Strategy extends AbstractStrategy {
 		report();
 		
 		// 4. 滿倉回報
-		checkPosition();
+//		checkPosition();
 		
 		// 5. 刪掉太遠的買單
 		closeFarOpenOrder();
@@ -227,20 +223,6 @@ public class Grid2Strategy extends AbstractStrategy {
 		}
 	}
 	
-	private void checkPosition() {
-		if(pause) {
-			if(position < maxContractSize) {
-				pause = false;
-			}
-		} else {
-			if(position >= maxContractSize) {
-				lineNotifyUtils.sendMessage(strategyName + "爆倉中, 注意策略狀態");
-				cancelAllOpenOrder();
-				pause = true;
-			}
-		}
-	}
-	
 	private void closeFarOpenOrder() {
 		if(setOpenPrice.size() > orderLevel + 1) {
 			Collection<BigDecimal> collection = mapOrderIdToPrice.values();
@@ -309,8 +291,8 @@ public class Grid2Strategy extends AbstractStrategy {
 		prop.setProperty("log4j.configurationFile", "./config/log4j2.xml");
 
 		try {
-			String configPath = "./config/grid2.json";
-//			String configPath = "./config/grid2testnet.json";
+//			String configPath = "./config/grid2.json";
+			String configPath = "./config/grid2testnet.json";
 			Grid2Strategy strategy = new Grid2Strategy(new JsonStrategyConfig(configPath));
 			strategy.start();
 		} catch (Exception e) {
