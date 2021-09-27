@@ -22,7 +22,7 @@ import name.qd.tp2.exchanges.vo.Orderbook;
 
 public class FakeExchange extends AbstractExchange {
 	private Logger log = LoggerFactory.getLogger(FakeExchange.class);
-	private final ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
+	private final ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(1);
 	
 	private Set<String> setSubscribedSymbol = new HashSet<>();
 	// orderId, strategyName
@@ -41,11 +41,11 @@ public class FakeExchange extends AbstractExchange {
 		
 		init();
 		
-		scheduledExecutorService.scheduleAtFixedRate(new FakeExchangeRunner(), 0, 1, TimeUnit.SECONDS);
+		scheduledExecutorService.scheduleWithFixedDelay(new FakeExchangeRunner(), 0, 1, TimeUnit.SECONDS);
 	}
 
 	private void init() {
-		String[] states = new String[] {StateController.UP, StateController.DOWN, StateController.UP, StateController.DOWN};
+		String[] states = new String[] {StateController.DOWN, StateController.UP, StateController.DOWN, StateController.UP};
 		int[] times = new int[] {300, 200, 200, 300};
 		mapSymbolPrice.put("ETHPFC", new PriceSimulator(2900, states, times));
 	}
@@ -122,6 +122,7 @@ public class FakeExchange extends AbstractExchange {
 				
 				// fill
 				Map<String, Order> mapSymbolOrders = mapOrders.get(symbol);
+				if(mapSymbolOrders == null) return;
 				List<String> lstRemoveOrderId = new ArrayList<>();
 				for(String orderId : mapSymbolOrders.keySet()) {
 					Order order = mapSymbolOrders.get(orderId);

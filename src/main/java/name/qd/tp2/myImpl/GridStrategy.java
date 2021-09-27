@@ -80,6 +80,8 @@ public class GridStrategy extends AbstractStrategy {
 	private FileCacheManager fileCacheManager;
 	private NormalCacheManager grid1CacheManager;
 	private Grid1StrategyStatus grid1StrategyStatus;
+	
+	private String tradingExchange;
 
 	public GridStrategy(StrategyConfig strategyConfig) {
 		super(strategyConfig);
@@ -92,7 +94,8 @@ public class GridStrategy extends AbstractStrategy {
 		tickSize = new BigDecimal(strategyConfig.getCustomizeSettings("tickSize"));
 		orderLevel = Integer.parseInt(strategyConfig.getCustomizeSettings("orderLevel"));
 		lineNotify = strategyConfig.getCustomizeSettings("lineNotify");
-
+		tradingExchange = strategyConfig.getCustomizeSettings("tradingExchange");
+		
 		lineNotifyUtils = new LineNotifyUtils(lineNotify);
 
 		ZonedDateTime zonedDateTime = ZonedDateTime.now();
@@ -118,6 +121,32 @@ public class GridStrategy extends AbstractStrategy {
 			grid1CacheManager.put(grid1StrategyStatus);
 		} else {
 			// TODO 鋪單
+			log.info("重新啟動策略 前次第一單:{}, 均價:{}, 未平量:{}", grid1StrategyStatus.getFirstOrderPrice(), grid1StrategyStatus.getAveragePrice(), grid1StrategyStatus.getPosition());
+			targetPrice = PriceUtils.getStopProfitPrice(BigDecimal.valueOf(grid1StrategyStatus.getAveragePrice()), stopProfitType, stopProfit);
+			placeStopProfitOrder();
+			
+			int remainPosition = grid1StrategyStatus.getPosition();
+			double basePrice = grid1StrategyStatus.getFirstOrderPrice();
+			for (int i = 0; i < orderLevel; i++) {
+				basePrice = basePrice - (priceRange.intValue() * Math.pow(2, i));
+				double qty = firstContractSize * Math.pow(2, i);
+				
+				if(remainPosition >= qty) {
+					remainPosition -= qty;
+				} else {
+					qty -= remainPosition;
+					remainPosition = 0;
+					
+					String orderId = sendOrder(BuySell.BUY, basePrice, qty);
+					if (orderId != null) {
+						log.info("鋪單 {} {} {}", i, basePrice, qty);
+						setOrderId.add(orderId);
+					} else {
+						log.error("鋪單失敗 {} {} {}", i, basePrice, qty);
+						lineNotifyUtils.sendMessage(strategyName + "鋪單失敗");
+					}
+				}
+			}
 		}
 	}
 
@@ -127,12 +156,19 @@ public class GridStrategy extends AbstractStrategy {
 
 		// 策略剛啟動鋪單
 		if (setOrderId.size() == 0) {
-			Orderbook orderbook = exchangeManager.getOrderbook(ExchangeManager.BTSE_EXCHANGE, symbol);
+			Orderbook orderbook = exchangeManager.getOrderbook(tradingExchange, symbol);
 			if (orderbook == null) return;
 			double price = orderbook.getBidTopPrice(1)[0];
 			// 紀錄下第一單時 當下的市場價格
 			firstOrderMarketPrice = BigDecimal.valueOf(price);
+			grid1StrategyStatus.setFirstOrderPrice(firstOrderMarketPrice.doubleValue());
 			placeLevelOrders(0, price);
+			
+			try {
+				grid1CacheManager.writeCacheToFile();
+			} catch (IOException e) {
+				log.error("write cache to file failed.", e);
+			}
 		} else {
 			checkCurrentPrice();
 		}
@@ -151,7 +187,7 @@ public class GridStrategy extends AbstractStrategy {
 		// 刪除全部未成交單
 		if (grid1StrategyStatus.getPosition() == 0) {
 			// 第一單完全成交狀態下
-			Orderbook orderbook = exchangeManager.getOrderbook(ExchangeManager.BTSE_EXCHANGE, symbol);
+			Orderbook orderbook = exchangeManager.getOrderbook(tradingExchange, symbol);
 			if (orderbook != null) {
 				double price = orderbook.getBidTopPrice(1)[0];
 				BigDecimal stopProfitPrice = PriceUtils.getStopProfitPrice(firstOrderMarketPrice.subtract(priceRange), stopProfitType, stopProfit);
@@ -165,22 +201,22 @@ public class GridStrategy extends AbstractStrategy {
 	}
 
 	private void checkFill() {
+		// TODO 
 		ZonedDateTime zonedDateTime = ZonedDateTime.now();
 		to = zonedDateTime.toEpochSecond() * 1000;
-
-		List<Fill> lstFill = exchangeManager.getFillHistory(ExchangeManager.BTSE_EXCHANGE, userName, symbol, from, to);
-
-		if (lstFill == null)
-			return;
+		List<Fill> lstFill = exchangeManager.getFillHistory(tradingExchange, userName, symbol, from, to);
+		if (lstFill == null) return;
 		from = to;
 
-//		List<Fill> lstFill = exchangeManager.getFill(strategyName, ExchangeManager.BTSE_EXCHANGE_NAME);
+		// TODO 測試Fake Exchange要改回這個
+		// 或是有穩定的websocket的交易所可用這個
+//		List<Fill> lstFill = exchangeManager.getFill(strategyName, tradingExchange);
 		for (Fill fill : lstFill) {
 			// 濾掉不是此策略的成交
 			if (!setOrderId.contains(fill.getOrderId()) && !fill.getOrderId().equals(stopProfitOrderId)) continue;
 
 			log.debug("收到成交 {} {} {}", fill.getFillPrice(), fill.getQty(), fill.getOrderId());
-			int qty = Integer.parseInt(fill.getQty());
+			int qty = (int) Double.parseDouble(fill.getQty());
 			double fillPrice = Double.parseDouble(fill.getFillPrice());
 			if (fill.getOrderId().equals(stopProfitOrderId)) {
 				grid1StrategyStatus.setPosition(grid1StrategyStatus.getPosition() - qty);
@@ -204,7 +240,7 @@ public class GridStrategy extends AbstractStrategy {
 				}
 			} else {
 				// 一般單成交
-
+				
 				// 重算成本 改停利單
 				double averagePrice = ((grid1StrategyStatus.getPosition() * grid1StrategyStatus.getAveragePrice()) + (fillPrice * qty)) / (grid1StrategyStatus.getPosition() + qty);
 				grid1StrategyStatus.setAveragePrice(averagePrice);
@@ -263,20 +299,20 @@ public class GridStrategy extends AbstractStrategy {
 
 	private String sendOrder(BuySell buySell, double price, double qty) {
 		PriceUtils.trimPriceWithTicksize(BigDecimal.valueOf(price), tickSize, RoundingMode.UP);
-		return exchangeManager.sendOrder(strategyName, ExchangeManager.BTSE_EXCHANGE, userName, symbol, buySell, price, qty);
+		return exchangeManager.sendOrder(strategyName, tradingExchange, userName, symbol, buySell, price, qty);
 	}
 
 	private boolean cancelOrder(String orderId) {
 		if (orderId == null) {
 			for (String id : setOrderId) {
 				if (id != null) {
-					exchangeManager.cancelOrder(strategyName, ExchangeManager.BTSE_EXCHANGE, userName, symbol, id);
+					exchangeManager.cancelOrder(strategyName, tradingExchange, userName, symbol, id);
 				}
 			}
 			setOrderId.clear();
 			return true;
 		} else {
-			return exchangeManager.cancelOrder(strategyName, ExchangeManager.BTSE_EXCHANGE, userName, symbol, orderId);
+			return exchangeManager.cancelOrder(strategyName, tradingExchange, userName, symbol, orderId);
 		}
 	}
 
