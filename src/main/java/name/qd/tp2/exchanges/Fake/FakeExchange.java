@@ -8,7 +8,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -28,6 +27,8 @@ public class FakeExchange extends AbstractExchange {
 	private Set<String> setSubscribedSymbol = new HashSet<>();
 	// orderId, strategyName
 	private Map<String, String> mapOrderIdToStrategy = new HashMap<>();
+	// orderId, userName
+	private Map<String, String> mapOrderIdToUserName = new HashMap<>();
 		
 	// symbol, price
 	private Map<String, PriceSimulator> mapSymbolPrice = new HashMap<>();
@@ -74,6 +75,7 @@ public class FakeExchange extends AbstractExchange {
 	public String sendLimitOrder(String userName, String strategyName, String symbol, BuySell buySell, double price, double qty) {
 		UUID uuid = UUID.randomUUID();
 		mapOrderIdToStrategy.put(uuid.toString(), strategyName);
+		mapOrderIdToUserName.put(uuid.toString(), userName);
 		if(!mapOrders.containsKey(symbol)) {
 			mapOrders.put(symbol, new ConcurrentHashMap<>());
 		}
@@ -110,16 +112,58 @@ public class FakeExchange extends AbstractExchange {
 	private class FakeExchangeRunner implements Runnable {
 		@Override
 		public void run() {
-			// orderbook
 			for(String symbol : mapSymbolPrice.keySet()) {
+				// orderbook
 				double price = mapSymbolPrice.get(symbol).next();
 				Orderbook orderbook = new Orderbook();
 				orderbook.addAsk(price + 1, 999);
 				orderbook.addBid(price - 1, 999);
 				updateOrderbook(symbol, orderbook);
+				
+				// fill
+				Map<String, Order> mapSymbolOrders = mapOrders.get(symbol);
+				List<String> lstRemoveOrderId = new ArrayList<>();
+				for(String orderId : mapSymbolOrders.keySet()) {
+					Order order = mapSymbolOrders.get(orderId);
+					BuySell buySell = order.getBuySell();
+					switch (buySell) {
+					case BUY:
+						if(order.getPrice() >= price + 1) {
+							Fill fill = toFill(order, orderId, symbol);
+							lstRemoveOrderId.add(orderId);
+							String strategyName = mapOrderIdToStrategy.get(orderId);
+							addFill(strategyName, fill);
+						}
+						break;
+					case SELL:
+						if(order.getPrice() <= price - 1) {
+							Fill fill = toFill(order, orderId, symbol);
+							lstRemoveOrderId.add(orderId);
+							String strategyName = mapOrderIdToStrategy.get(orderId);
+							addFill(strategyName, fill);
+						}
+						break;
+					}
+				}
+				// remove
+				for(String orderId : lstRemoveOrderId) {
+					mapSymbolOrders.remove(orderId);
+				}
 			}
-			
-			// fill
+		}
+		
+		private Fill toFill(Order order, String orderId, String symbol) {
+			String userName = mapOrderIdToUserName.get(orderId);
+			Fill fill = new Fill();
+			fill.setBuySell(order.getBuySell());
+			fill.setFillPrice(String.valueOf(order.getPrice()));
+			fill.setOrderId(orderId);
+			fill.setOrderPrice(String.valueOf(order.getPrice()));
+			fill.setQty(String.valueOf(order.getQty()));
+			fill.setSymbol(symbol);
+			fill.setTimestamp(System.currentTimeMillis());
+			fill.setUserName(userName);
+			return fill;
 		}
 	}
 }
