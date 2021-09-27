@@ -134,7 +134,7 @@ public class Grid2Strategy extends AbstractStrategy {
 	
 	private void checkFill() {
 		// TODO partial fill
-		List<Fill> lstFill = exchangeManager.getFill(strategyName, ExchangeManager.BTSE_EXCHANGE_NAME);
+		List<Fill> lstFill = exchangeManager.getFill(strategyName, ExchangeManager.BTSE_EXCHANGE);
 		processFill(lstFill);
 	}
 	
@@ -143,7 +143,7 @@ public class Grid2Strategy extends AbstractStrategy {
 		ZonedDateTime zonedDateTime = ZonedDateTime.now();
 		long to = zonedDateTime.toEpochSecond() * 1000;
 		
-		List<Fill> lst = exchangeManager.getFillHistory(ExchangeManager.BTSE_EXCHANGE_NAME, userName, symbol, lastFillTime, to);
+		List<Fill> lst = exchangeManager.getFillHistory(ExchangeManager.BTSE_EXCHANGE, userName, symbol, lastFillTime, to);
 		if(lst == null) return;
 		
 		lastFillTime = to;
@@ -180,7 +180,7 @@ public class Grid2Strategy extends AbstractStrategy {
 	}
 	
 	private void placeOrder() {
-		Orderbook orderbook = exchangeManager.getOrderbook(ExchangeManager.BTSE_EXCHANGE_NAME, symbol);
+		Orderbook orderbook = exchangeManager.getOrderbook(ExchangeManager.BTSE_EXCHANGE, symbol);
 		if(orderbook == null) return;
 
 		int orderPrice = BigDecimal.valueOf(orderbook.getBidTopPrice(1)[0]).setScale(0, RoundingMode.DOWN).intValue();
@@ -296,12 +296,12 @@ public class Grid2Strategy extends AbstractStrategy {
 	
 	private String sendOrder(BuySell buySell, double price, double qty) {
 		log.info("send order: {} {} {}", buySell, price, qty);
-		return exchangeManager.sendOrder(strategyName, ExchangeManager.BTSE_EXCHANGE_NAME, userName, symbol, buySell, price, qty);
+		return exchangeManager.sendOrder(strategyName, ExchangeManager.BTSE_EXCHANGE, userName, symbol, buySell, price, qty);
 	}
 	
 	private boolean cancelOrder(String orderId) {
 		log.info("cancel order: {}", orderId);
-		return exchangeManager.cancelOrder(strategyName, ExchangeManager.BTSE_EXCHANGE_NAME, userName, symbol, orderId);
+		return exchangeManager.cancelOrder(strategyName, ExchangeManager.BTSE_EXCHANGE, userName, symbol, orderId);
 	}
 	
 	public static void main(String[] s) {

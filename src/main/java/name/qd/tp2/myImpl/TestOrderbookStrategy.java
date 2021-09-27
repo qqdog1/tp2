@@ -18,7 +18,7 @@ public class TestOrderbookStrategy extends AbstractStrategy {
 		processBook();
 		
 //		exchangeManager.getBalance(ExchangeManager.BTSE_EXCHANGE_NAME, "shawn");
-		String orderId = exchangeManager.sendOrder("Test01", ExchangeManager.BTSE_EXCHANGE_NAME, "shawn", 
+		String orderId = exchangeManager.sendOrder("Test01", ExchangeManager.BTSE_EXCHANGE, "shawn", 
 				"ETHPFC", BuySell.BUY, 1, 1);
 		
 		System.out.println(orderId);
@@ -29,12 +29,12 @@ public class TestOrderbookStrategy extends AbstractStrategy {
 			e.printStackTrace();
 		}
 		
-		boolean isCancelled = exchangeManager.cancelOrder("Test01", ExchangeManager.BTSE_EXCHANGE_NAME, "shawn", "ETHPFC", orderId);
+		boolean isCancelled = exchangeManager.cancelOrder("Test01", ExchangeManager.BTSE_EXCHANGE, "shawn", "ETHPFC", orderId);
 		System.out.println(isCancelled);
 	}
 
 	private void processBook() {
-		Orderbook orderbook = exchangeManager.getOrderbook(ExchangeManager.BTSE_EXCHANGE_NAME, "ETHPFC");
+		Orderbook orderbook = exchangeManager.getOrderbook(ExchangeManager.BTSE_EXCHANGE, "ETHPFC");
 		if(orderbook != null) {
 			Double bidPrice = orderbook.getBidTopPrice(1)[0];
 			Double bidQty = orderbook.getBidTopQty(1)[0];

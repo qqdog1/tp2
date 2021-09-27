@@ -127,7 +127,7 @@ public class GridStrategy extends AbstractStrategy {
 
 		// 策略剛啟動鋪單
 		if (setOrderId.size() == 0) {
-			Orderbook orderbook = exchangeManager.getOrderbook(ExchangeManager.BTSE_EXCHANGE_NAME, symbol);
+			Orderbook orderbook = exchangeManager.getOrderbook(ExchangeManager.BTSE_EXCHANGE, symbol);
 			if (orderbook == null) return;
 			double price = orderbook.getBidTopPrice(1)[0];
 			// 紀錄下第一單時 當下的市場價格
@@ -151,7 +151,7 @@ public class GridStrategy extends AbstractStrategy {
 		// 刪除全部未成交單
 		if (grid1StrategyStatus.getPosition() == 0) {
 			// 第一單完全成交狀態下
-			Orderbook orderbook = exchangeManager.getOrderbook(ExchangeManager.BTSE_EXCHANGE_NAME, symbol);
+			Orderbook orderbook = exchangeManager.getOrderbook(ExchangeManager.BTSE_EXCHANGE, symbol);
 			if (orderbook != null) {
 				double price = orderbook.getBidTopPrice(1)[0];
 				BigDecimal stopProfitPrice = PriceUtils.getStopProfitPrice(firstOrderMarketPrice.subtract(priceRange), stopProfitType, stopProfit);
@@ -168,7 +168,7 @@ public class GridStrategy extends AbstractStrategy {
 		ZonedDateTime zonedDateTime = ZonedDateTime.now();
 		to = zonedDateTime.toEpochSecond() * 1000;
 
-		List<Fill> lstFill = exchangeManager.getFillHistory(ExchangeManager.BTSE_EXCHANGE_NAME, userName, symbol, from, to);
+		List<Fill> lstFill = exchangeManager.getFillHistory(ExchangeManager.BTSE_EXCHANGE, userName, symbol, from, to);
 
 		if (lstFill == null)
 			return;
@@ -263,20 +263,20 @@ public class GridStrategy extends AbstractStrategy {
 
 	private String sendOrder(BuySell buySell, double price, double qty) {
 		PriceUtils.trimPriceWithTicksize(BigDecimal.valueOf(price), tickSize, RoundingMode.UP);
-		return exchangeManager.sendOrder(strategyName, ExchangeManager.BTSE_EXCHANGE_NAME, userName, symbol, buySell, price, qty);
+		return exchangeManager.sendOrder(strategyName, ExchangeManager.BTSE_EXCHANGE, userName, symbol, buySell, price, qty);
 	}
 
 	private boolean cancelOrder(String orderId) {
 		if (orderId == null) {
 			for (String id : setOrderId) {
 				if (id != null) {
-					exchangeManager.cancelOrder(strategyName, ExchangeManager.BTSE_EXCHANGE_NAME, userName, symbol, id);
+					exchangeManager.cancelOrder(strategyName, ExchangeManager.BTSE_EXCHANGE, userName, symbol, id);
 				}
 			}
 			setOrderId.clear();
 			return true;
 		} else {
-			return exchangeManager.cancelOrder(strategyName, ExchangeManager.BTSE_EXCHANGE_NAME, userName, symbol, orderId);
+			return exchangeManager.cancelOrder(strategyName, ExchangeManager.BTSE_EXCHANGE, userName, symbol, orderId);
 		}
 	}
 

@@ -69,7 +69,7 @@ public class TestFillStrategy extends AbstractStrategy {
 		
 		boolean isLast = false;
 		while(!isLast) {
-			List<Fill> lst = exchangeManager.getFillHistory(ExchangeManager.BTSE_EXCHANGE_NAME, username, symbol, from, to);
+			List<Fill> lst = exchangeManager.getFillHistory(ExchangeManager.BTSE_EXCHANGE, username, symbol, from, to);
 			if(lst == null) continue;
 			
 			log.info("get fill size: {}", lst.size());
