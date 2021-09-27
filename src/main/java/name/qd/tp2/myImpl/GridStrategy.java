@@ -226,7 +226,7 @@ public class GridStrategy extends AbstractStrategy {
 					lineNotifyUtils.sendMessage(strategyName + "停利單完全成交");
 					stopProfitOrderId = null;
 					// 計算獲利
-					calcProfit(qty, fillPrice);
+					calcProfit(qty, fillPrice, Double.parseDouble(fill.getFee()));
 					// 清除成本
 					grid1StrategyStatus.setAveragePrice(0);
 					// 重算目標價
@@ -236,7 +236,7 @@ public class GridStrategy extends AbstractStrategy {
 				} else {
 					log.warn("停利單部分成交 {}, {}", fill.getFillPrice(), fill.getQty());
 					lineNotifyUtils.sendMessage(strategyName + "停利單部分成交" + fill.getQty());
-					calcProfit(qty, fillPrice);
+					calcProfit(qty, fillPrice, Double.parseDouble(fill.getFee()));
 				}
 			} else {
 				// 一般單成交
@@ -316,9 +316,9 @@ public class GridStrategy extends AbstractStrategy {
 		}
 	}
 
-	private void calcProfit(double qty, double price) {
+	private void calcProfit(double qty, double price, double fee) {
 		double priceDiff = price - grid1StrategyStatus.getAveragePrice();
-		double profit = priceDiff * qty / 100;
+		double profit = (priceDiff * qty / 100) - fee;
 		lineNotifyUtils.sendMessage(strategyName + "獲利: " + profit);
 		log.info("獲利: {}", profit);
 	}
