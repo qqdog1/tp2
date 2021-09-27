@@ -1,4 +1,4 @@
-package name.qd.tp2.exchanges.Fake;
+package name.qd.tp2.exchanges.vo;
 
 import name.qd.tp2.constants.BuySell;
 
