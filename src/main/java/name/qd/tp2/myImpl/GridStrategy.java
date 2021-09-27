@@ -120,7 +120,6 @@ public class GridStrategy extends AbstractStrategy {
 			grid1StrategyStatus = new Grid1StrategyStatus();
 			grid1CacheManager.put(grid1StrategyStatus);
 		} else {
-			// TODO 鋪單
 			log.info("重新啟動策略 前次第一單:{}, 均價:{}, 未平量:{}", grid1StrategyStatus.getFirstOrderPrice(), grid1StrategyStatus.getAveragePrice(), grid1StrategyStatus.getPosition());
 			targetPrice = PriceUtils.getStopProfitPrice(BigDecimal.valueOf(grid1StrategyStatus.getAveragePrice()), stopProfitType, stopProfit);
 			placeStopProfitOrder();
@@ -139,7 +138,7 @@ public class GridStrategy extends AbstractStrategy {
 					
 					String orderId = sendOrder(BuySell.BUY, basePrice, qty);
 					if (orderId != null) {
-						log.info("鋪單 {} {} {}", i, basePrice, qty);
+						log.info("鋪單 {} {} {} {}", i, basePrice, qty, orderId);
 						setOrderId.add(orderId);
 					} else {
 						log.error("鋪單失敗 {} {} {}", i, basePrice, qty);
@@ -222,7 +221,7 @@ public class GridStrategy extends AbstractStrategy {
 				grid1StrategyStatus.setPosition(grid1StrategyStatus.getPosition() - qty);
 				// 停利單成交
 				if (grid1StrategyStatus.getPosition() == 0) {
-					log.info("停利單完全成交, {} {}", fill.getFillPrice(), fill.getQty());
+					log.info("停利單完全成交, {} {} {}", fill.getFillPrice(), fill.getQty(), fill.getOrderId());
 					lineNotifyUtils.sendMessage(strategyName + "停利單完全成交");
 					stopProfitOrderId = null;
 					// 計算獲利
@@ -234,7 +233,7 @@ public class GridStrategy extends AbstractStrategy {
 					// 刪除之前鋪單
 					cancelOrder(null);
 				} else {
-					log.warn("停利單部分成交 {}, {}", fill.getFillPrice(), fill.getQty());
+					log.warn("停利單部分成交 {}, {} {}", fill.getFillPrice(), fill.getQty(), fill.getOrderId());
 					lineNotifyUtils.sendMessage(strategyName + "停利單部分成交" + fill.getQty());
 					calcProfit(qty, fillPrice, Double.parseDouble(fill.getFee()));
 				}
@@ -275,7 +274,7 @@ public class GridStrategy extends AbstractStrategy {
 			if (i == startLevel) {
 				String orderId = sendOrder(BuySell.BUY, basePrice, qty);
 				if (orderId != null) {
-					log.info("鋪單 {} {} {}", i, basePrice, qty);
+					log.info("鋪單 {} {} {} {}", i, basePrice, qty, orderId);
 					setOrderId.add(orderId);
 				} else {
 					log.error("鋪單失敗 {} {} {}", i, basePrice, qty);
