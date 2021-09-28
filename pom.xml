@@ -63,12 +63,4 @@
 			<scope>test</scope>
 		</dependency>
 	</dependencies>
-
-	<repositories>
-		<repository>
-			<id>github</id>
-			<url>https://maven.pkg.github.com/qqdog1/file-cache</url>
-		</repository>
-	</repositories>
-
 </project>
