@@ -19,6 +19,7 @@ import name.qd.tp2.constants.StopProfitType;
 import name.qd.tp2.exchanges.ExchangeManager;
 import name.qd.tp2.exchanges.vo.Fill;
 import name.qd.tp2.exchanges.vo.Orderbook;
+import name.qd.tp2.myImpl.vo.Grid1StrategyStatus;
 import name.qd.tp2.strategies.AbstractStrategy;
 import name.qd.tp2.strategies.config.JsonStrategyConfig;
 import name.qd.tp2.strategies.config.StrategyConfig;
@@ -151,7 +152,11 @@ public class GridStrategy extends AbstractStrategy {
 
 	@Override
 	public void strategyAction() {
-		checkFill();
+		// from websocket, Fake exchange use this
+//		checkFill();
+		
+		// for some exchange had unstable websocket connection
+		checkFillRest();
 
 		// 策略剛啟動鋪單
 		if (setOrderId.size() == 0) {
@@ -200,17 +205,25 @@ public class GridStrategy extends AbstractStrategy {
 	}
 
 	private void checkFill() {
-		// TODO 
+		// TODO 測試Fake Exchange要改回這個
+		// 或是有穩定的websocket的交易所可用這個
+		List<Fill> lstFill = exchangeManager.getFill(strategyName, tradingExchange);
+		
+		processFill(lstFill);
+	}
+	
+	private void checkFillRest() {
 		ZonedDateTime zonedDateTime = ZonedDateTime.now();
 		to = zonedDateTime.toEpochSecond() * 1000;
 		List<Fill> lstFill = exchangeManager.getFillHistory(tradingExchange, userName, symbol, from, to);
 		if (lstFill == null) return;
 		from = to;
-
-		// TODO 測試Fake Exchange要改回這個
-		// 或是有穩定的websocket的交易所可用這個
-//		List<Fill> lstFill = exchangeManager.getFill(strategyName, tradingExchange);
-		for (Fill fill : lstFill) {
+		
+		processFill(lstFill);
+	}
+	
+	private void processFill(List<Fill> lst) {
+		for (Fill fill : lst) {
 			// 濾掉不是此策略的成交
 			if (!setOrderId.contains(fill.getOrderId()) && !fill.getOrderId().equals(stopProfitOrderId)) continue;
 

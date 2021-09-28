@@ -18,6 +18,7 @@ import org.slf4j.LoggerFactory;
 import name.qd.tp2.constants.BuySell;
 import name.qd.tp2.exchanges.AbstractExchange;
 import name.qd.tp2.exchanges.vo.Fill;
+import name.qd.tp2.exchanges.vo.Order;
 import name.qd.tp2.exchanges.vo.Orderbook;
 
 public class FakeExchange extends AbstractExchange {
@@ -45,8 +46,8 @@ public class FakeExchange extends AbstractExchange {
 	}
 
 	private void init() {
-		String[] states = new String[] {StateController.DOWN, StateController.UP, StateController.DOWN, StateController.UP};
-		int[] times = new int[] {300, 200, 200, 300};
+		String[] states = new String[] {StateController.DOWN, StateController.UP, StateController.DOWN, StateController.UP, StateController.DOWN};
+		int[] times = new int[] {30, 30, 50, 70, 20};
 		mapSymbolPrice.put("ETHPFC", new PriceSimulator(2900, states, times));
 	}
 	
@@ -161,6 +162,7 @@ public class FakeExchange extends AbstractExchange {
 			fill.setOrderId(orderId);
 			fill.setOrderPrice(String.valueOf(order.getPrice()));
 			fill.setQty(String.valueOf(order.getQty()));
+			fill.setFee("0");
 			fill.setSymbol(symbol);
 			fill.setTimestamp(System.currentTimeMillis());
 			fill.setUserName(userName);

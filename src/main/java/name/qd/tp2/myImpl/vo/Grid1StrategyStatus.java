@@ -1,4 +1,4 @@
-package name.qd.tp2.myImpl;
+package name.qd.tp2.myImpl.vo;
 
 import java.io.IOException;
 

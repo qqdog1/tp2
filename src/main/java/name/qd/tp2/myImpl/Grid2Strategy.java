@@ -1,5 +1,6 @@
 package name.qd.tp2.myImpl;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.ZonedDateTime;
@@ -16,11 +17,15 @@ import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import name.qd.fileCache.FileCacheManager;
+import name.qd.fileCache.cache.NormalCacheManager;
+import name.qd.fileCache.cache.NormalObject;
 import name.qd.tp2.constants.BuySell;
 import name.qd.tp2.constants.StopProfitType;
 import name.qd.tp2.exchanges.ExchangeManager;
 import name.qd.tp2.exchanges.vo.Fill;
 import name.qd.tp2.exchanges.vo.Orderbook;
+import name.qd.tp2.myImpl.vo.FillCacheByPrice;
 import name.qd.tp2.strategies.AbstractStrategy;
 import name.qd.tp2.strategies.config.JsonStrategyConfig;
 import name.qd.tp2.strategies.config.StrategyConfig;
@@ -68,17 +73,16 @@ public class Grid2Strategy extends AbstractStrategy {
 	private BigDecimal floorPrice;
 	private int notifyMinute = -1;
 	
-	private List<BigDecimal> lstBuy = new ArrayList<>();
-	private List<BigDecimal> lstSell = new ArrayList<>();
-	
-	private boolean pause = false;
-	private boolean start = false;
-	private boolean placeFirst = true;
 	private long lastFillTime;
 	
 	private Map<String, BigDecimal> mapOrderIdToPrice = new HashMap<>();
 	private Set<Double> setOpenPrice = new HashSet<>();
 	private Map<String, BigDecimal> mapStopProfitOrderId = new HashMap<>();
+	
+	private FileCacheManager fileCacheManager;
+	private NormalCacheManager grid2CacheManager;
+	
+	private String tradingExchange;
 
 	public Grid2Strategy(StrategyConfig strategyConfig) {
 		super(strategyConfig);
@@ -88,26 +92,54 @@ public class Grid2Strategy extends AbstractStrategy {
 		orderSize = Integer.parseInt(strategyConfig.getCustomizeSettings("orderSize"));
 		stopProfitType = StopProfitType.valueOf(strategyConfig.getCustomizeSettings("stopProfitType"));
 		stopProfit = new BigDecimal(strategyConfig.getCustomizeSettings("stopProfit"));
-		tickSize = new BigDecimal(strategyConfig.getCustomizeSettings("fee"));
+		tickSize = new BigDecimal(strategyConfig.getCustomizeSettings("tickSize"));
 		orderLevel = Integer.parseInt(strategyConfig.getCustomizeSettings("orderLevel"));
 		lineNotify = strategyConfig.getCustomizeSettings("lineNotify");
 		lineNotifyUtils = new LineNotifyUtils(lineNotify);
 		reportMinute = Integer.parseInt(strategyConfig.getCustomizeSettings("reportMinute"));
 		ceilingPrice = new BigDecimal(strategyConfig.getCustomizeSettings("ceilingPrice"));
 		floorPrice = new BigDecimal(strategyConfig.getCustomizeSettings("floorPrice"));
+		tradingExchange = strategyConfig.getCustomizeSettings("tradingExchange");
+	
+		fileCacheManager = new FileCacheManager("./grid2");
+		
+		initAndRestoreCache();
+	}
+	
+	private void initAndRestoreCache() {
+		try {
+			grid2CacheManager = fileCacheManager.getNormalCacheInstance("grid2", FillCacheByPrice.class.getName());
+		} catch (Exception e) {
+			log.error("init cache failed", e);
+			lineNotifyUtils.sendMessage(strategyName, "init cache failed");
+		}
+		
+		for(NormalObject object : grid2CacheManager.values()) {
+			FillCacheByPrice fill = (FillCacheByPrice) object;
+			
+			log.info("未平倉 {} {} {} {}", fill.getBuySell(), fill.getOrderPrice(), fill.getQty(), fill.getOrderId());
+			
+			if(fill.getBuySell() == BuySell.BUY) {
+				double price = Double.parseDouble(fill.getOrderPrice());
+				setOpenPrice.add(price);
+				placeStopProfitOrder(PriceUtils.getStopProfitPrice(BigDecimal.valueOf(price), stopProfitType, stopProfit));
+				
+				calcAvgPrice(fill.getFill());
+			} else {
+				log.error("未平倉不應有賣單");
+			}
+		}
 	}
 	
 	@Override
 	public void strategyAction() {
 		// 1. 檢查成交
 		//    有成交更新均價
-//		checkFill();
-		checkFillFromApi();
+		checkFill();
+//		checkFillFromApi();
 		
 		// 2. 鋪單
-		if(!pause) {
-			placeOrder();
-		}
+		placeOrder();
 		
 		// 3. 定時回報
 		report();
@@ -124,13 +156,26 @@ public class Grid2Strategy extends AbstractStrategy {
 		if(stopOrderId == null) {
 			log.error("下停利單失敗");
 			lineNotifyUtils.sendMessage(strategyName + " 下停利單失敗: " + price);
+		} else {
+			log.info("下停利單 {} {} {}", price, orderSize, stopOrderId);
 		}
 		mapStopProfitOrderId.put(stopOrderId, price);
 	}
 	
 	private void checkFill() {
 		// TODO partial fill
-		List<Fill> lstFill = exchangeManager.getFill(strategyName, ExchangeManager.BTSE_EXCHANGE);
+		// partial fill 應該就是成交多少 就下多少的反向就可以?
+		// 所以當有一單被切過部分成交 後續就一直都是碎片單在下
+		// EX: 本來一筆單是2 contracts
+		//     下B 2 contracts
+		//     fill B 1 contract
+		//     下S 1 contract
+		//     fill B 1 contract
+		//     下S 1 contract
+		//     此時S單不管怎樣都是兩單
+		//     程式後續怎麼跑都會變兩單在跑
+		//     worst case 所有單都變1contract 全部當taker 沒有手續費優惠
+		List<Fill> lstFill = exchangeManager.getFill(strategyName, tradingExchange);
 		processFill(lstFill);
 	}
 	
@@ -139,7 +184,7 @@ public class Grid2Strategy extends AbstractStrategy {
 		ZonedDateTime zonedDateTime = ZonedDateTime.now();
 		long to = zonedDateTime.toEpochSecond() * 1000;
 		
-		List<Fill> lst = exchangeManager.getFillHistory(ExchangeManager.BTSE_EXCHANGE, userName, symbol, lastFillTime, to);
+		List<Fill> lst = exchangeManager.getFillHistory(tradingExchange, userName, symbol, lastFillTime, to);
 		if(lst == null) return;
 		
 		lastFillTime = to;
@@ -155,56 +200,78 @@ public class Grid2Strategy extends AbstractStrategy {
 				BigDecimal price = mapOrderIdToPrice.remove(orderId);
 				placeStopProfitOrder(PriceUtils.getStopProfitPrice(price, stopProfitType, stopProfit));
 				
-				log.info("開倉單成交: {} {} {}, 下對應停利: {}", fill.getBuySell(), fill.getFillPrice(), fill.getQty(), PriceUtils.getStopProfitPrice(price, stopProfitType, stopProfit));
+				log.info("開倉單成交: {} {} {} {}, 下對應停利: {}", fill.getBuySell(), fill.getFillPrice(), fill.getQty(), orderId, PriceUtils.getStopProfitPrice(price, stopProfitType, stopProfit));
 				buyCount++;
 				// 算均價
 				calcAvgPrice(fill);
+				
+				addFillToCache(fill);
 			} else if(mapStopProfitOrderId.containsKey(orderId)) {
 				// 停利單成交
 				BigDecimal price = mapStopProfitOrderId.remove(orderId);
 				// TODO 目前回算open order價格是fix方式
-				setOpenPrice.remove(price.subtract(stopProfit).doubleValue());
+				double removePrice = price.subtract(stopProfit).doubleValue();
+				setOpenPrice.remove(removePrice);
 				
 				log.info("停利單成交: {} {} {}, 對應開倉應於: {}", fill.getBuySell(), fill.getFillPrice(), fill.getQty(), price.subtract(stopProfit));
 				sellCount++;
 				// 算均價
 				calcAvgPrice(fill);
+				
+				removeFillFromCache(removePrice);
 			} else {
 				log.error("未知成交: {}", orderId);
 			}
 		}
 	}
 	
+	private void addFillToCache(Fill fill) {
+		FillCacheByPrice fillCacheByPrice = new FillCacheByPrice(fill);
+		grid2CacheManager.put(fillCacheByPrice);
+		
+		try {
+			grid2CacheManager.writeCacheToFile();
+		} catch (IOException e) {
+			log.error("write cache to file failed.", e);
+		}
+	}
+	
+	private void removeFillFromCache(double removePrice) {
+		grid2CacheManager.remove(String.valueOf(removePrice));
+		
+		try {
+			grid2CacheManager.writeCacheToFile();
+		} catch (IOException e) {
+			log.error("write cache to file failed.", e);
+		}
+	}
+	
 	private void placeOrder() {
-		Orderbook orderbook = exchangeManager.getOrderbook(ExchangeManager.BTSE_EXCHANGE, symbol);
+		Orderbook orderbook = exchangeManager.getOrderbook(tradingExchange, symbol);
 		if(orderbook == null) return;
 
 		int orderPrice = BigDecimal.valueOf(orderbook.getBidTopPrice(1)[0]).setScale(0, RoundingMode.DOWN).intValue();
-		
-		if(orderPrice - stopProfit.intValue() > ceilingPrice.intValue()) {
-//			log.info("價格已到天花板 {} {}", orderPrice, ceilingPrice.toPlainString());
-			return;
-		} else if(orderPrice < floorPrice.intValue()) {
-//			log.info("價格已到地板 {} {}", orderPrice, floorPrice.toPlainString());
-			return;
-		}
-		
-		if(placeFirst) {
-			orderPrice -= orderPrice % priceRange;
-			placeFirst = false;
-		} else {
-			orderPrice -= orderPrice % priceRange;
-			orderPrice -= priceRange;
-		}
+		orderPrice -= orderPrice % priceRange;
 		
 		for(int i = 0 ; i < orderLevel ;) {
 			BigDecimal price = BigDecimal.valueOf(orderPrice - (i * priceRange));
+			
+			if(price.doubleValue() - stopProfit.intValue() > ceilingPrice.intValue()) {
+				log.info("價格已到天花板 {} {}", price.toPlainString(), ceilingPrice.toPlainString());
+				i++;
+				continue;
+			} else if(price.doubleValue() < floorPrice.intValue()) {
+				log.info("價格已到地板 {} {}", price.toPlainString(), floorPrice.toPlainString());
+				return;
+			}
+			
 			if(!setOpenPrice.contains(price.doubleValue())) {
 				String orderId = sendOrder(BuySell.BUY, price.doubleValue(), orderSize);
 				if(orderId != null) {
 					mapOrderIdToPrice.put(orderId, price);
 					setOpenPrice.add(price.doubleValue());
 					i++;
+					log.info("下開倉單: {} {} {}", price, orderSize, orderId);
 				} 
 			} else {
 				i++;
@@ -240,29 +307,18 @@ public class Grid2Strategy extends AbstractStrategy {
 			}
 			
 			for(String orderId : lstRemoveOrderId) {
-				cancelOrder(orderId);
-				BigDecimal price = mapOrderIdToPrice.remove(orderId);
-				setOpenPrice.remove(price.doubleValue());
+				if(cancelOrder(orderId)) {
+					BigDecimal price = mapOrderIdToPrice.remove(orderId);
+					setOpenPrice.remove(price.doubleValue());
+					log.info("刪除距離太遠開倉單: {} {} {}", price, orderSize, orderId);
+				}
 			}
 		}
 		
 	}
 	
-	private void cancelAllOpenOrder() {
-		for(String orderId : mapOrderIdToPrice.keySet()) {
-			if(cancelOrder(orderId)) {
-				BigDecimal price = mapOrderIdToPrice.get(orderId);
-				setOpenPrice.remove(price.doubleValue());
-			} else {
-				log.error("刪單失敗: " + orderId);
-				lineNotifyUtils.sendMessage("爆倉刪單失敗");
-			}
-		}
-		mapOrderIdToPrice.clear();
-	}
-	
 	private void calcAvgPrice(Fill fill) {
-		int qty = Integer.parseInt(fill.getQty());
+		int qty = (int) Double.parseDouble(fill.getQty());
 		double fillPrice = Double.parseDouble(fill.getFillPrice());
 		if(BuySell.BUY == fill.getBuySell()) {
 			position += qty;
@@ -277,13 +333,14 @@ public class Grid2Strategy extends AbstractStrategy {
 	}
 	
 	private String sendOrder(BuySell buySell, double price, double qty) {
+		BigDecimal orderPrice = PriceUtils.trimPriceWithTicksize(BigDecimal.valueOf(price), tickSize, RoundingMode.UP);
 		log.info("send order: {} {} {}", buySell, price, qty);
-		return exchangeManager.sendOrder(strategyName, ExchangeManager.BTSE_EXCHANGE, userName, symbol, buySell, price, qty);
+		return exchangeManager.sendOrder(strategyName, tradingExchange, userName, symbol, buySell, orderPrice.doubleValue(), qty);
 	}
 	
 	private boolean cancelOrder(String orderId) {
 		log.info("cancel order: {}", orderId);
-		return exchangeManager.cancelOrder(strategyName, ExchangeManager.BTSE_EXCHANGE, userName, symbol, orderId);
+		return exchangeManager.cancelOrder(strategyName, tradingExchange, userName, symbol, orderId);
 	}
 	
 	public static void main(String[] s) {
