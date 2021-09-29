@@ -38,8 +38,7 @@ public class ExchangeManager {
 						new BTSEFuturesExchange(ExchangeSettings.getExchangeRestUrlByEnv(exchange, env),
 												ExchangeSettings.getExchangeWSUrlByEnv(exchange, env)));
 			} else if(FAKE_EXCHANGE.equals(exchange)) {
-				mapExchange.put(FAKE_EXCHANGE,
-						new FakeExchange("", ""));
+				mapExchange.put(FAKE_EXCHANGE, new FakeExchange("", ""));
 			} else {
 				log.error("exchange not implement yet, {}", exchange);
 			}

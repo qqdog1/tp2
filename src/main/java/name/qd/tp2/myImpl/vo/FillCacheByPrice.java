@@ -51,10 +51,6 @@ public class FillCacheByPrice extends NormalObject {
 		return fill.getTimestamp();
 	}
 	
-	public String getUserName() {
-		return fill.getUserName();
-	}
-	
 	public String getFee() {
 		return fill.getFee();
 	}
@@ -69,7 +65,6 @@ public class FillCacheByPrice extends NormalObject {
 		tOut.writeString(fill.getOrderPrice());
 		tOut.writeString(fill.getQty());
 		tOut.writeLong(fill.getTimestamp());
-		tOut.writeString(fill.getUserName());
 		tOut.writeString(fill.getFee());
 		return tOut.toByteArray();
 	}
@@ -86,7 +81,6 @@ public class FillCacheByPrice extends NormalObject {
 		fill.setOrderPrice(tIn.getString());
 		fill.setQty(tIn.getString());
 		fill.setTimestamp(tIn.getLong());
-		fill.setUserName(tIn.getString());
 		fill.setFee(tIn.getString());
 	}
 

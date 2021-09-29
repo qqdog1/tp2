@@ -73,7 +73,7 @@ public class Grid2Strategy extends AbstractStrategy {
 	private BigDecimal floorPrice;
 	private int notifyMinute = -1;
 	
-	private long lastFillTime;
+	private long from;
 	
 	private Map<String, BigDecimal> mapOrderIdToPrice = new HashMap<>();
 	private Set<Double> setOpenPrice = new HashSet<>();
@@ -101,6 +101,9 @@ public class Grid2Strategy extends AbstractStrategy {
 		floorPrice = new BigDecimal(strategyConfig.getCustomizeSettings("floorPrice"));
 		tradingExchange = strategyConfig.getCustomizeSettings("tradingExchange");
 	
+		ZonedDateTime zonedDateTime = ZonedDateTime.now();
+		from = zonedDateTime.toEpochSecond() * 1000;
+		
 		fileCacheManager = new FileCacheManager("./grid2");
 		
 		initAndRestoreCache();
@@ -135,8 +138,8 @@ public class Grid2Strategy extends AbstractStrategy {
 	public void strategyAction() {
 		// 1. 檢查成交
 		//    有成交更新均價
-		checkFill();
-//		checkFillFromApi();
+//		checkFill();
+		checkFillFromApi();
 		
 		// 2. 鋪單
 		placeOrder();
@@ -184,10 +187,10 @@ public class Grid2Strategy extends AbstractStrategy {
 		ZonedDateTime zonedDateTime = ZonedDateTime.now();
 		long to = zonedDateTime.toEpochSecond() * 1000;
 		
-		List<Fill> lst = exchangeManager.getFillHistory(tradingExchange, userName, symbol, lastFillTime, to);
+		List<Fill> lst = exchangeManager.getFillHistory(tradingExchange, userName, symbol, from, to);
 		if(lst == null) return;
 		
-		lastFillTime = to;
+		from = to;
 		
 		processFill(lst);
 	}
@@ -257,11 +260,11 @@ public class Grid2Strategy extends AbstractStrategy {
 			BigDecimal price = BigDecimal.valueOf(orderPrice - (i * priceRange));
 			
 			if(price.doubleValue() - stopProfit.intValue() > ceilingPrice.intValue()) {
-				log.info("價格已到天花板 {} {}", price.toPlainString(), ceilingPrice.toPlainString());
+//				log.info("價格已到天花板 {} {}", price.toPlainString(), ceilingPrice.toPlainString());
 				i++;
 				continue;
 			} else if(price.doubleValue() < floorPrice.intValue()) {
-				log.info("價格已到地板 {} {}", price.toPlainString(), floorPrice.toPlainString());
+//				log.info("價格已到地板 {} {}", price.toPlainString(), floorPrice.toPlainString());
 				return;
 			}
 			
@@ -291,13 +294,13 @@ public class Grid2Strategy extends AbstractStrategy {
 	}
 	
 	private void closeFarOpenOrder() {
-		if(setOpenPrice.size() > orderLevel + 1) {
+		if(setOpenPrice.size() > orderLevel) {
 			Collection<BigDecimal> collection = mapOrderIdToPrice.values();
 			List<BigDecimal> lst = new ArrayList<>(collection);
 			Collections.sort(lst);
 			
 			List<String> lstRemoveOrderId = new ArrayList<>();
-			for(int i = 0 ; i < lst.size() - orderLevel - 1 ; i++) {
+			for(int i = 0 ; i < lst.size() - orderLevel ; i++) {
 				int index = i;
 				mapOrderIdToPrice.forEach((orderId, price) -> {
 					if(price.equals(lst.get(index))) {
@@ -314,7 +317,6 @@ public class Grid2Strategy extends AbstractStrategy {
 				}
 			}
 		}
-		
 	}
 	
 	private void calcAvgPrice(Fill fill) {
@@ -348,8 +350,8 @@ public class Grid2Strategy extends AbstractStrategy {
 		prop.setProperty("log4j.configurationFile", "./config/log4j2.xml");
 
 		try {
-//			String configPath = "./config/grid2.json";
-			String configPath = "./config/grid2testnet.json";
+			String configPath = "./config/grid2.json";
+//			String configPath = "./config/grid2testnet.json";
 			Grid2Strategy strategy = new Grid2Strategy(new JsonStrategyConfig(configPath));
 			strategy.start();
 		} catch (Exception e) {
