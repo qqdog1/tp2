@@ -259,7 +259,7 @@ public class Grid2Strategy extends AbstractStrategy {
 		for(int i = 0 ; i < orderLevel ;) {
 			BigDecimal price = BigDecimal.valueOf(orderPrice - (i * priceRange));
 			
-			if(price.doubleValue() - stopProfit.intValue() > ceilingPrice.intValue()) {
+			if(price.doubleValue() > ceilingPrice.intValue()) {
 //				log.info("價格已到天花板 {} {}", price.toPlainString(), ceilingPrice.toPlainString());
 				i++;
 				continue;
