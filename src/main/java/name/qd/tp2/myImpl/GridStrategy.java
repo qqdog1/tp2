@@ -310,8 +310,8 @@ public class GridStrategy extends AbstractStrategy {
 	}
 
 	private String sendOrder(BuySell buySell, double price, double qty) {
-		PriceUtils.trimPriceWithTicksize(BigDecimal.valueOf(price), tickSize, RoundingMode.UP);
-		return exchangeManager.sendOrder(strategyName, tradingExchange, userName, symbol, buySell, price, qty);
+		BigDecimal bigDecimal = PriceUtils.trimPriceWithTicksize(BigDecimal.valueOf(price), tickSize, RoundingMode.UP);
+		return exchangeManager.sendOrder(strategyName, tradingExchange, userName, symbol, buySell, bigDecimal.doubleValue(), qty);
 	}
 
 	private boolean cancelOrder(String orderId) {
@@ -340,8 +340,8 @@ public class GridStrategy extends AbstractStrategy {
 		prop.setProperty("log4j.configurationFile", "./config/log4j2.xml");
 
 		try {
-			String configPath = "./config/testnet.json";
-//			String configPath = "./config/test.json";
+//			String configPath = "./config/testnet.json";
+			String configPath = "./config/test.json";
 			GridStrategy strategy = new GridStrategy(new JsonStrategyConfig(configPath));
 			strategy.start();
 		} catch (Exception e) {
