@@ -43,8 +43,8 @@ import name.qd.tp2.utils.PriceUtils;
  * TODO 均價下降後 未成交的G1單是否要向下鋪???
  * TODO G2為平單高於G1停利單 要怎麼出場
  */
-public class GIGStrategy extends AbstractStrategy {
-	private Logger log = LoggerFactory.getLogger(GIGStrategy.class);
+public class GIGStrategyBac extends AbstractStrategy {
+	private Logger log = LoggerFactory.getLogger(GIGStrategyBac.class);
 	private LineNotifyUtils lineNotifyUtils;
 	
 	private ExchangeManager exchangeManager = ExchangeManager.getInstance();
@@ -98,7 +98,7 @@ public class GIGStrategy extends AbstractStrategy {
 	
 	private String tradingExchange;
 	
-	public GIGStrategy(StrategyConfig strategyConfig) {
+	public GIGStrategyBac(StrategyConfig strategyConfig) {
 		super(strategyConfig);
 		
 		// 空手的時候若上漲超過多少要追價
@@ -483,7 +483,7 @@ public class GIGStrategy extends AbstractStrategy {
 		
 		try {
 			String configPath = "./config/gigTestnet.json";
-			GIGStrategy strategy = new GIGStrategy(new JsonStrategyConfig(configPath));
+			GIGStrategyBac strategy = new GIGStrategyBac(new JsonStrategyConfig(configPath));
 			strategy.start();
 		} catch (Exception e) {
 			e.printStackTrace();
