@@ -235,7 +235,7 @@ public class GridStrategy extends AbstractStrategy {
 				// 停利單成交
 				if (grid1StrategyStatus.getPosition() == 0) {
 					log.info("停利單完全成交, {} {} {}", fill.getFillPrice(), fill.getQty(), fill.getOrderId());
-					lineNotifyUtils.sendMessage(strategyName + "停利單完全成交");
+					lineNotifyUtils.sendMessage(strategyName, "停利單完全成交", fill.getQty());
 					stopProfitOrderId = null;
 					// 計算獲利
 					calcProfit(qty, fillPrice, Double.parseDouble(fill.getFee()));
