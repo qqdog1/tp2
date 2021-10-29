@@ -1,6 +1,8 @@
 package name.qd.tp2.utils;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -51,5 +53,17 @@ public class PriceUtilsTest {
 		stopProfitValue = new BigDecimal("1.022");
 		stopProfitPrice = PriceUtils.getStopProfitPrice(price, stopProfitType, stopProfitValue);
 		assertEquals(new BigDecimal("1023.25706").doubleValue(), stopProfitPrice.doubleValue());
+	}
+
+	@Test
+	void isMeetProfitTrailingStop() {
+		BigDecimal profitPrice = new BigDecimal("1234.5678");
+		BigDecimal pullback = new BigDecimal(5);
+
+		//BigDecimal profitPrice, BigDecimal currentPrice, BigDecimal maxPrice, BigDecimal pullback
+		assertFalse(PriceUtils.isMeetProfitTrailingStop(profitPrice, new BigDecimal(1234), new BigDecimal(1234), pullback));
+		assertTrue(PriceUtils.isMeetProfitTrailingStop(profitPrice, new BigDecimal(1235), new BigDecimal(1240), pullback));
+		assertFalse(PriceUtils.isMeetProfitTrailingStop(profitPrice, new BigDecimal(1240), new BigDecimal(1240), pullback));
+
 	}
 }

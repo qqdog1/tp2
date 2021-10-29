@@ -51,4 +51,18 @@ public class PriceUtils {
 		}
 		return stopProfitPrice;
 	}
+
+	public static boolean isMeetProfitTrailingStop(BigDecimal profitPrice, BigDecimal currentPrice,
+												   BigDecimal maxPrice, BigDecimal pullback) {
+		if (profitPrice.compareTo(currentPrice) == 1) {
+			return false;
+		}
+		if (maxPrice.subtract(pullback).compareTo(currentPrice) == -1) {
+			return false;
+		}
+		if (maxPrice.subtract(pullback).compareTo(profitPrice) == -1) {
+			return false;
+		}
+		return true;
+	}
 }
