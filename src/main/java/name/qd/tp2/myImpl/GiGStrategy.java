@@ -60,12 +60,14 @@ public class GiGStrategy extends AbstractStrategy {
 	private StopProfitType g1StopProfitType;
 	private BigDecimal g1StopProfit;
 	private int g1OrderLevel;
+	private BigDecimal g1CeilingPrice;
 	
 	private BigDecimal g2PriceRange;
 	private int g2OrderSize;
 	private StopProfitType g2StopProfitType;
 	private BigDecimal g2StopProfit;
 	private int g2OrderLevel;
+	private int g2MaxSize;
 	
 	private BigDecimal tickSize;
 	private String lineNotify;
@@ -88,6 +90,7 @@ public class GiGStrategy extends AbstractStrategy {
 		g1StopProfitType = StopProfitType.valueOf(strategyConfig.getCustomizeSettings("g1_stopProfitType"));
 		g1StopProfit = new BigDecimal(strategyConfig.getCustomizeSettings("g1_stopProfit"));
 		g1OrderLevel = Integer.parseInt(strategyConfig.getCustomizeSettings("g1_orderLevel"));
+		g1CeilingPrice = new BigDecimal(strategyConfig.getCustomizeSettings("g1_ceilingPrice"));
 		
 		// g2 settings
 		g2PriceRange = new BigDecimal(strategyConfig.getCustomizeSettings("g2_priceRange"));
@@ -95,6 +98,7 @@ public class GiGStrategy extends AbstractStrategy {
 		g2StopProfitType = StopProfitType.valueOf(strategyConfig.getCustomizeSettings("g2_stopProfitType"));
 		g2StopProfit = new BigDecimal(strategyConfig.getCustomizeSettings("g2_stopProfit"));
 		g2OrderLevel = Integer.parseInt(strategyConfig.getCustomizeSettings("g2_orderLevel"));
+		g2MaxSize = Integer.parseInt(strategyConfig.getCustomizeSettings("g2_maxSize"));
 		
 		tickSize = new BigDecimal(strategyConfig.getCustomizeSettings("tickSize"));
 		lineNotify = strategyConfig.getCustomizeSettings("lineNotify");
@@ -119,7 +123,7 @@ public class GiGStrategy extends AbstractStrategy {
 			lineNotifyUtils.sendMessage(strategyName, "init cache failed");
 		}
 
-		g1StrategyStatus = (Grid1StrategyStatus) g1CacheManager.get("grid1");
+		g1StrategyStatus = (Grid1StrategyStatus) g1CacheManager.get("g1");
 		if (g1StrategyStatus == null) {
 			g1StrategyStatus = new Grid1StrategyStatus();
 			g1CacheManager.put(g1StrategyStatus);
@@ -168,7 +172,11 @@ public class GiGStrategy extends AbstractStrategy {
 			double price = orderbook.getBidTopPrice(1)[0];
 			// 紀錄下第一單時 當下的市場價格
 			firstOrderMarketPrice = BigDecimal.valueOf(price);
-			g1StrategyStatus.setFirstOrderPrice(firstOrderMarketPrice.doubleValue());
+			g1StrategyStatus.setFirstOrderPrice(price);
+			if(firstOrderMarketPrice.compareTo(g1CeilingPrice) > 0) {
+				// 價格已超過天花板
+				return;
+			}
 			placeLevelOrders(0, price);
 			
 			try {
@@ -178,13 +186,6 @@ public class GiGStrategy extends AbstractStrategy {
 			}
 		} else {
 			checkCurrentPrice();
-		}
-
-		// 給GTC多一點時間 且電腦要爆了
-		try {
-			Thread.sleep(1000);
-		} catch (InterruptedException e) {
-			e.printStackTrace();
 		}
 	}
 
