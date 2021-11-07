@@ -1,8 +1,11 @@
 package name.qd.tp2.utils;
 
+import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.GeneralSecurityException;
@@ -27,18 +30,21 @@ import com.google.api.client.util.store.FileDataStoreFactory;
 import com.google.api.services.drive.Drive;
 import com.google.api.services.drive.DriveScopes;
 import com.google.api.services.drive.model.File;
+import com.google.api.services.drive.model.FileList;
 
-public class GoogleDriveUploader {
-	private static final Logger log = LoggerFactory.getLogger(GoogleDriveUploader.class);
-	private static final String APPLICATION_NAME = "BSR uploader";
+public class GoogleDriveUtils {
+	private static final Logger log = LoggerFactory.getLogger(GoogleDriveUtils.class);
+	private String applicationName;
     private static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
-    private static final String TOKENS_DIRECTORY_PATH = "tokens";
+    private static final String TOKENS_FOLDER_PATH = "googledrive/tokens";
+    private static final String TMP_FOLDER = "./googledrive/tmp/";
     private static final List<String> SCOPES = Collections.singletonList(DriveScopes.DRIVE);
     
     private String credentialsFilePath;
     private Drive drive;
 
-    public GoogleDriveUploader(String credentialsFilePath) {
+    public GoogleDriveUtils(String applicationName, String credentialsFilePath) {
+    	this.applicationName = applicationName;
     	this.credentialsFilePath = credentialsFilePath;
     	
     	initDrive();
@@ -48,7 +54,7 @@ public class GoogleDriveUploader {
 		try {
 			NetHttpTransport HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport();
 			drive = new Drive.Builder(HTTP_TRANSPORT, JSON_FACTORY, getCredentials(HTTP_TRANSPORT))
-	                .setApplicationName(APPLICATION_NAME)
+	                .setApplicationName(applicationName)
 	                .build();
 		} catch (GeneralSecurityException | IOException e) {
 			log.error("Init google drive failed.", e);
@@ -60,20 +66,80 @@ public class GoogleDriveUploader {
         
         GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow.Builder(
                 HTTP_TRANSPORT, JSON_FACTORY, clientSecrets, SCOPES)
-                .setDataStoreFactory(new FileDataStoreFactory(new java.io.File(TOKENS_DIRECTORY_PATH)))
+                .setDataStoreFactory(new FileDataStoreFactory(new java.io.File(TOKENS_FOLDER_PATH)))
                 .setAccessType("offline")
                 .build();
         LocalServerReceiver receiver = new LocalServerReceiver.Builder().setPort(8888).build();
         return new AuthorizationCodeInstalledApp(flow, receiver).authorize("user");
     }
     
-    public boolean uploadFile(String filePath, String folderId) {
-    	System.out.println(folderId);
+    // 開機步驟
+    // 檢查local是否有當日交易紀錄檔
+    // 到google drive找交易紀錄檔
+    // 有就下載 沒有就create
+    // 有新的交易 就寫local 並update google drive
+    
+    public String isFileExist(String fileName, String folderId) {
+    	FileList fileList = null;
+		try {
+			fileList = drive.files().list().setQ("name='"+fileName+"' and parents in '"+folderId+"'").execute();
+		} catch (IOException e) {
+			log.error("query file from google drive failed. fileName: {}, folderId: {}", fileName, folderId);
+		}
+		if(fileList != null) {
+			return fileList.getFiles().get(0).getId();
+		}
+		return null;
+    }
+    
+    public String downloadFileByName(String fileName, String folderId) {
+    	try {
+			FileList fileList = drive.files().list().setQ("name='"+fileName+"' and parents in '"+folderId+"'").execute();
+			if(fileList.getFiles().size() == 1) {
+				ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+				drive.files().get(fileList.getFiles().get(0).getId()).executeMediaAndDownloadTo(outputStream);
+				if(!Files.exists(Paths.get(TMP_FOLDER))) {
+					Files.createDirectory(Paths.get(TMP_FOLDER));
+				}
+				Files.createFile(Paths.get(TMP_FOLDER + fileName));
+				FileOutputStream fos = new FileOutputStream(new java.io.File(TMP_FOLDER + fileName));
+				outputStream.writeTo(fos);
+				
+				return fileList.getFiles().get(0).getId();
+			}
+		} catch (IOException e) {
+			log.error("download file from google drive failed.", e);
+		}
+    	return null;
+    }
+    
+    public boolean updateFile(String filePath, String fileId, String folderId, String mimeType) {
     	Path path = Paths.get(filePath);
     	
     	File file = new File();
         file.setName(path.getFileName().toString());
-        file.setMimeType("application/zip");
+        file.setMimeType(mimeType);
+        
+        java.io.File fileContent = new java.io.File(filePath);
+        FileContent mediaContent = new FileContent(mimeType, fileContent);
+
+		try {
+			File fileUploaded = drive.files().update(fileId, file, mediaContent).execute();
+			if(fileUploaded != null) {
+				return true;
+			}
+		} catch (IOException e) {
+			log.error("Update file to google drive failed.", e);
+		}
+		return false;
+    }
+    
+    public boolean uploadFile(String filePath, String folderId, String mimeType) {
+    	Path path = Paths.get(filePath);
+    	
+    	File file = new File();
+        file.setName(path.getFileName().toString());
+        file.setMimeType(mimeType);
         if(!"".equals(folderId)) {
         	List<String> lstFolderId = new ArrayList<>();
             lstFolderId.add(folderId);
@@ -81,7 +147,7 @@ public class GoogleDriveUploader {
         }
         
         java.io.File fileContent = new java.io.File(filePath);
-        FileContent mediaContent = new FileContent("application/zip", fileContent);
+        FileContent mediaContent = new FileContent(mimeType, fileContent);
 
 		try {
 			File fileUploaded = drive.files().create(file, mediaContent).execute();
