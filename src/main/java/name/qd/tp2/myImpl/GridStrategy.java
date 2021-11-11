@@ -3,7 +3,13 @@ package name.qd.tp2.myImpl;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
+import java.text.SimpleDateFormat;
 import java.time.ZonedDateTime;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
@@ -23,6 +29,7 @@ import name.qd.tp2.myImpl.vo.Grid1StrategyStatus;
 import name.qd.tp2.strategies.AbstractStrategy;
 import name.qd.tp2.strategies.config.JsonStrategyConfig;
 import name.qd.tp2.strategies.config.StrategyConfig;
+import name.qd.tp2.utils.GoogleDriveUtils;
 import name.qd.tp2.utils.LineNotifyUtils;
 import name.qd.tp2.utils.PriceUtils;
 
@@ -53,6 +60,10 @@ import name.qd.tp2.utils.PriceUtils;
 public class GridStrategy extends AbstractStrategy {
 	private Logger log = LoggerFactory.getLogger(GridStrategy.class);
 	private LineNotifyUtils lineNotifyUtils;
+	private GoogleDriveUtils googleDriveUtils;
+	private static final String TMP_FOLDER = "./googledrive/tmp/";
+	private SimpleDateFormat sdfDate = new SimpleDateFormat("yyyyMMdd");
+	private SimpleDateFormat sdfTime = new SimpleDateFormat("HH:mm:ss");
 	// 與交易所溝通用
 	private ExchangeManager exchangeManager = ExchangeManager.getInstance();
 
@@ -65,6 +76,9 @@ public class GridStrategy extends AbstractStrategy {
 	private BigDecimal targetPrice;
 	private BigDecimal firstOrderMarketPrice;
 	private Set<String> setOrderId = new HashSet<>();
+	// google drive
+	private boolean gdDirtyFlag = false;
+	private long gdLastUpdateTime = System.currentTimeMillis();
 
 	// 這個策略要用到的值 全部都設定在config
 	private BigDecimal priceRange;
@@ -74,6 +88,9 @@ public class GridStrategy extends AbstractStrategy {
 	private BigDecimal tickSize;
 	private int orderLevel;
 	private String lineNotify;
+	private String googleDriveFolderId;
+	private String googleCredentialsPath;
+	private String currentWorkingFile;
 
 	private long from;
 	private long to;
@@ -94,10 +111,13 @@ public class GridStrategy extends AbstractStrategy {
 		stopProfit = new BigDecimal(strategyConfig.getCustomizeSettings("stopProfit"));
 		tickSize = new BigDecimal(strategyConfig.getCustomizeSettings("tickSize"));
 		orderLevel = Integer.parseInt(strategyConfig.getCustomizeSettings("orderLevel"));
-		lineNotify = strategyConfig.getCustomizeSettings("lineNotify");
 		tradingExchange = strategyConfig.getCustomizeSettings("tradingExchange");
+		lineNotify = strategyConfig.getCustomizeSettings("lineNotify");
+		googleDriveFolderId = strategyConfig.getCustomizeSettings("googleDriveFolderId");
+		googleCredentialsPath = strategyConfig.getCustomizeSettings("googleCredentialsPath");
 		
-		lineNotifyUtils = new LineNotifyUtils(lineNotify);
+		// notification
+		initNotifyTool();
 
 		ZonedDateTime zonedDateTime = ZonedDateTime.now();
 		from = zonedDateTime.toEpochSecond() * 1000;
@@ -107,13 +127,45 @@ public class GridStrategy extends AbstractStrategy {
 
 		initAndRestoreCache();
 	}
-
+	
+	private void initNotifyTool() {
+		if(lineNotify != null && !"".equals(lineNotify)) {
+			lineNotifyUtils = new LineNotifyUtils(lineNotify);
+		}
+		if(googleDriveFolderId != null && googleCredentialsPath != null) {
+			if(!"".equals(googleDriveFolderId) && !"".equals(googleCredentialsPath)) {
+				googleDriveUtils = new GoogleDriveUtils("grid strategy record", googleCredentialsPath, TMP_FOLDER);
+				syncTodayRecord();
+			}
+		}
+	}
+	
+	private void syncTodayRecord() {
+		currentWorkingFile = getFileName();
+		Path path = Paths.get(TMP_FOLDER, currentWorkingFile);
+		if(!Files.exists(path)) {
+			if(googleDriveUtils.isFileExist(currentWorkingFile, googleDriveFolderId)) {
+				googleDriveUtils.downloadFileByName(currentWorkingFile, googleDriveFolderId);
+			} else {
+				try {
+					Files.createFile(path);
+				} catch (IOException e) {
+					log.error("create new file failed. {}", path.toString());
+				}
+			}
+		}
+	}
+	
+	private String getFileName() {
+		return sdfDate.format(new Date()) + ".csv";
+	}
+	
 	private void initAndRestoreCache() {
 		try {
 			grid1CacheManager = fileCacheManager.getNormalCacheInstance("grid1", Grid1StrategyStatus.class.getName());
 		} catch (Exception e) {
 			log.error("init cache failed", e);
-			lineNotifyUtils.sendMessage(strategyName, "init cache failed");
+			sendLineMessage(strategyName + "init cache failed");
 		}
 
 		grid1StrategyStatus = (Grid1StrategyStatus) grid1CacheManager.get("grid1");
@@ -143,7 +195,7 @@ public class GridStrategy extends AbstractStrategy {
 						setOrderId.add(orderId);
 					} else {
 						log.error("鋪單失敗 {} {} {}", i, basePrice, qty);
-						lineNotifyUtils.sendMessage(strategyName + "鋪單失敗");
+						sendLineMessage(strategyName + "鋪單失敗");
 					}
 				}
 			}
@@ -153,10 +205,10 @@ public class GridStrategy extends AbstractStrategy {
 	@Override
 	public void strategyAction() {
 		// from websocket, Fake exchange use this
-//		checkFill();
+		checkFill();
 		
 		// for some exchange had unstable websocket connection
-		checkFillRest();
+//		checkFillRest();
 
 		// 策略剛啟動鋪單
 		if (setOrderId.size() == 0) {
@@ -176,6 +228,22 @@ public class GridStrategy extends AbstractStrategy {
 		} else {
 			checkCurrentPrice();
 		}
+		
+		if(System.currentTimeMillis() - gdLastUpdateTime > 10000) {
+			if(gdDirtyFlag) {
+				// upsert
+				String fileId = googleDriveUtils.getFileId(currentWorkingFile, googleDriveFolderId);
+				if(fileId == null) {
+					googleDriveUtils.uploadFile(TMP_FOLDER + "/" + currentWorkingFile, googleDriveFolderId, "text/csv");
+				} else {
+					googleDriveUtils.updateFile(TMP_FOLDER + "/" + currentWorkingFile, fileId, googleDriveFolderId, "text/csv");
+				}
+				gdLastUpdateTime = System.currentTimeMillis();
+				gdDirtyFlag = false;
+			}
+		}
+		
+		checkGoogleDriveTmpFile();
 
 		// 給GTC多一點時間 且電腦要爆了
 		try {
@@ -201,6 +269,14 @@ public class GridStrategy extends AbstractStrategy {
 					cancelOrder(null);
 				}
 			}
+		}
+	}
+	
+	private void checkGoogleDriveTmpFile() {
+		String fileName = getFileName();
+		if(!fileName.equals(currentWorkingFile)) {
+			// 換日
+			syncTodayRecord();
 		}
 	}
 
@@ -259,7 +335,7 @@ public class GridStrategy extends AbstractStrategy {
 				if (stopProfitOrderId != null) {
 					if (!cancelOrder(stopProfitOrderId)) {
 						log.error("清除舊的停利單失敗 orderId:{}", stopProfitOrderId);
-						lineNotifyUtils.sendMessage(strategyName + "清除舊的停利單失敗");
+						sendLineMessage(strategyName + "清除舊的停利單失敗");
 					} else {
 						stopProfitOrderId = null;
 						log.info("清除舊的停利單");
@@ -268,6 +344,8 @@ public class GridStrategy extends AbstractStrategy {
 				// 下新的停利單
 				targetPrice = PriceUtils.getStopProfitPrice(BigDecimal.valueOf(averagePrice), stopProfitType, stopProfit);
 				placeStopProfitOrder();
+				
+				writeGDRecord(strategyName, fillPrice, qty, Double.valueOf(fill.getFee()), sdfTime.format(new Date()));
 			}
 			
 			try {
@@ -289,7 +367,7 @@ public class GridStrategy extends AbstractStrategy {
 					setOrderId.add(orderId);
 				} else {
 					log.error("鋪單失敗 {} {} {}", i, basePrice, qty);
-					lineNotifyUtils.sendMessage(strategyName + "鋪單失敗");
+					sendLineMessage(strategyName + "鋪單失敗");
 				}
 				startLevel++;
 			}
@@ -303,7 +381,7 @@ public class GridStrategy extends AbstractStrategy {
 			log.info("下停利單 {} {} {}", targetPrice, grid1StrategyStatus.getPosition(), orderId);
 		} else {
 			log.warn("下停利單失敗 {} {}", targetPrice, grid1StrategyStatus.getPosition());
-			lineNotifyUtils.sendMessage(strategyName + "下停利單失敗");
+			sendLineMessage(strategyName + "下停利單失敗");
 		}
 	}
 
@@ -329,8 +407,37 @@ public class GridStrategy extends AbstractStrategy {
 	private void calcProfit(double qty, double price, double fee) {
 		double priceDiff = price - grid1StrategyStatus.getAveragePrice();
 		double profit = (priceDiff * qty / 100) - fee;
-		lineNotifyUtils.sendWithDiffLine(strategyName + " 停利單成交: " + qty, "獲利: " + profit);
+		sendLineMessage(strategyName + " 停利單成交: " + qty, "獲利: " + profit);
+		writeGDRecord(strategyName, price, -qty, fee, sdfTime.format(new Date()));
 		log.info("獲利: {}", profit);
+	}
+	
+	private void sendLineMessage(String ... message) {
+		if(lineNotifyUtils != null) {
+			lineNotifyUtils.sendWithDiffLine(message);
+		}
+	}
+	
+	private void writeGDRecord(String strategyName, double price, double qty, double fee, String date) {
+		if(googleDriveUtils != null) {
+			Path path = Paths.get(TMP_FOLDER, currentWorkingFile);
+			String data = combineToCSVRecord(strategyName, String.valueOf(price), String.valueOf(qty), String.valueOf(fee), date);
+			try {
+				Files.writeString(path, data + System.lineSeparator(), StandardOpenOption.APPEND);
+				gdDirtyFlag = true;
+			} catch (IOException e) {
+				log.error("append data on {} failed.", path.toString());
+			}
+		}
+	}
+	
+	private String combineToCSVRecord(String ... data) {
+		StringBuilder sb = new StringBuilder();
+		for(String value : data) {
+			sb.append(value).append(",");
+		}
+		String s = sb.toString();
+		return s.substring(0, s.length() - 1);
 	}
 
 	public static void main(String[] s) {

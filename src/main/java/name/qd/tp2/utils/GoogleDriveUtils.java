@@ -37,15 +37,16 @@ public class GoogleDriveUtils {
 	private String applicationName;
     private static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
     private static final String TOKENS_FOLDER_PATH = "googledrive/tokens";
-    private static final String TMP_FOLDER = "./googledrive/tmp/";
     private static final List<String> SCOPES = Collections.singletonList(DriveScopes.DRIVE);
     
+    private String workingPath;
     private String credentialsFilePath;
     private Drive drive;
 
-    public GoogleDriveUtils(String applicationName, String credentialsFilePath) {
+    public GoogleDriveUtils(String applicationName, String credentialsFilePath, String workingPath) {
     	this.applicationName = applicationName;
     	this.credentialsFilePath = credentialsFilePath;
+    	this.workingPath = workingPath;
     	
     	initDrive();
     }
@@ -79,7 +80,11 @@ public class GoogleDriveUtils {
     // 有就下載 沒有就create
     // 有新的交易 就寫local 並update google drive
     
-    public String isFileExist(String fileName, String folderId) {
+    public boolean isFileExist(String fileName, String folderId) {
+    	return getFileId(fileName, folderId) != null;
+    }
+    
+    public String getFileId(String fileName, String folderId) {
     	FileList fileList = null;
 		try {
 			fileList = drive.files().list().setQ("name='"+fileName+"' and parents in '"+folderId+"'").execute();
@@ -87,7 +92,9 @@ public class GoogleDriveUtils {
 			log.error("query file from google drive failed. fileName: {}, folderId: {}", fileName, folderId);
 		}
 		if(fileList != null) {
-			return fileList.getFiles().get(0).getId();
+			if(fileList.getFiles().size() == 1) {
+				return fileList.getFiles().get(0).getId();
+			}
 		}
 		return null;
     }
@@ -98,11 +105,12 @@ public class GoogleDriveUtils {
 			if(fileList.getFiles().size() == 1) {
 				ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 				drive.files().get(fileList.getFiles().get(0).getId()).executeMediaAndDownloadTo(outputStream);
-				if(!Files.exists(Paths.get(TMP_FOLDER))) {
-					Files.createDirectory(Paths.get(TMP_FOLDER));
+				if(!Files.exists(Paths.get(workingPath))) {
+					Files.createDirectory(Paths.get(workingPath));
 				}
-				Files.createFile(Paths.get(TMP_FOLDER + fileName));
-				FileOutputStream fos = new FileOutputStream(new java.io.File(TMP_FOLDER + fileName));
+				Path path = Paths.get(workingPath, fileName);
+				Files.createFile(path);
+				FileOutputStream fos = new FileOutputStream(path.toFile());
 				outputStream.writeTo(fos);
 				
 				return fileList.getFiles().get(0).getId();

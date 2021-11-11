@@ -13,7 +13,7 @@ public class GoogleDriveUtilsTest {
 	
 	@BeforeEach
 	void init() {
-		googleDriveUploader = new GoogleDriveUtils("uploadTest", "C:/qqdog1/tp2/config/credentials.json");
+		googleDriveUploader = new GoogleDriveUtils("uploadTest", "C:/qqdog1/tp2/config/credentials.json", "./googledrive/tmp");
 	}
 	
 	@Test
@@ -29,13 +29,13 @@ public class GoogleDriveUtilsTest {
 	
 	@Test
 	public void testIsFileExist() {
-		String fileId = googleDriveUploader.isFileExist("abc.txt", "1Y42XGdSj1tjWmmGk5XCAg5MlFbq0tZ2E");
+		String fileId = googleDriveUploader.getFileId("abc.txt", "1Y42XGdSj1tjWmmGk5XCAg5MlFbq0tZ2E");
 		System.out.println(fileId);
 	}
 	
 	@Test
 	public void testUpdateFile() {
-		String fileId = googleDriveUploader.isFileExist("abc.txt", "1Y42XGdSj1tjWmmGk5XCAg5MlFbq0tZ2E");
+		String fileId = googleDriveUploader.getFileId("abc.txt", "1Y42XGdSj1tjWmmGk5XCAg5MlFbq0tZ2E");
 		
 		try {
 			Files.writeString(Paths.get("./googledrive/tmp/abc.txt"), "GGAA" + System.lineSeparator(), StandardOpenOption.APPEND);
