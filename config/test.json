@@ -2,24 +2,29 @@
   "generalSettings": [
     {
       "exchange": "BTSE",
+      "env": "production",
       "symbol": [
         "ETHPFC"
       ],
       "user": [
         {
           "name": "shawn",
-          "apiKey": "aa",
-          "secret": "bb"
+          "apiKey": "",
+          "secret": ""
         }
       ]
     }
   ],
   "customizeSettings": {
-    "priceRange": 10,
-    "firstContractSize": 10,
-    "stopProfit": 3,
-    "fee": 0.0004,
-	"tickSize": 0.05,
-	"orderLevel": 5
+	"priceRange": 10,
+  	"firstContractSize": 20,
+  	"stopProfitType": "FIX",
+	"stopProfit": 20,
+  	"tickSize": 0.05,
+  	"orderLevel": 4,
+  	"tradingExchange": "BTSE",
+  	"lineNotify": "",
+	"googleDriveFolderId": "",
+	"googleCredentialsPath": "./config/credentials.json"
   }
 }

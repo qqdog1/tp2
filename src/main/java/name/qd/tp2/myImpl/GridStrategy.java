@@ -446,7 +446,7 @@ public class GridStrategy extends AbstractStrategy {
 
 		try {
 //			String configPath = "./config/testnet.json";
-			String configPath = "./config/test.json";
+			String configPath = "./config/grid.json";
 			GridStrategy strategy = new GridStrategy(new JsonStrategyConfig(configPath));
 			strategy.start();
 		} catch (Exception e) {
