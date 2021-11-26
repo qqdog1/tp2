@@ -27,9 +27,15 @@ public class JsonStrategyConfig extends AbstractStrategyConfig {
 		
 		for(JsonNode exchangeNode : generalSettings) {
 			String exchange = exchangeNode.get("exchange").asText();
-			String env = exchangeNode.get("env").asText();
+			if(exchangeNode.has("env")) {
+				String env = exchangeNode.get("env").asText();
+				setExchangeEvn(exchange, env);
+			}
+			if(exchangeNode.has("fillChannel")) {
+				String fillChannel = exchangeNode.get("fillChannel").asText();
+				setExchangeFillChannel(exchange, fillChannel);
+			}
 			
-			setExchangeEvn(exchange, env);
 			for(JsonNode symbolNode : exchangeNode.get("symbol")) {
 				addSymbol(exchange, symbolNode.asText());
 			}

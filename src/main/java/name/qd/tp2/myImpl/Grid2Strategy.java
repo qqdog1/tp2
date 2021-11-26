@@ -138,8 +138,8 @@ public class Grid2Strategy extends AbstractStrategy {
 	public void strategyAction() {
 		// 1. 檢查成交
 		//    有成交更新均價
-//		checkFill();
-		checkFillFromApi();
+		checkFill();
+//		checkFillFromApi();
 		
 		// 2. 鋪單
 		placeOrder();
@@ -182,18 +182,18 @@ public class Grid2Strategy extends AbstractStrategy {
 		processFill(lstFill);
 	}
 	
-	private void checkFillFromApi() {
-		// websocket 不可靠 打API拿成交
-		ZonedDateTime zonedDateTime = ZonedDateTime.now();
-		long to = zonedDateTime.toEpochSecond() * 1000;
-		
-		List<Fill> lst = exchangeManager.getFillHistory(tradingExchange, userName, symbol, from, to);
-		if(lst == null) return;
-		
-		from = to;
-		
-		processFill(lst);
-	}
+//	private void checkFillFromApi() {
+//		// websocket 不可靠 打API拿成交
+//		ZonedDateTime zonedDateTime = ZonedDateTime.now();
+//		long to = zonedDateTime.toEpochSecond() * 1000;
+//		
+//		List<Fill> lst = exchangeManager.getFillHistory(tradingExchange, userName, symbol, from, to);
+//		if(lst == null) return;
+//		
+//		from = to;
+//		
+//		processFill(lst);
+//	}
 	
 	private void processFill(List<Fill> lstFill) {
 		for(Fill fill : lstFill) {

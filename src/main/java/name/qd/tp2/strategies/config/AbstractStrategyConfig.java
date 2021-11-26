@@ -13,6 +13,7 @@ public abstract class AbstractStrategyConfig implements StrategyConfig {
 	private Map<String, Map<String, ApiKeySecret>> mapApiKeys = new HashMap<>();
 	private Map<String, String> mapCustomize = new HashMap<>();
 	private Map<String, String> mapExchangeEnv = new HashMap<>();
+	private Map<String, String> mapExchangeFillChannel = new HashMap<>();
 	
 	public void addExchange(String exchange) {
 		if(!mapTradingPair.containsKey(exchange)) {
@@ -39,6 +40,14 @@ public abstract class AbstractStrategyConfig implements StrategyConfig {
 	
 	public void setExchangeEvn(String exchange, String env) {
 		mapExchangeEnv.put(exchange, env);
+	}
+	
+	public String getExchangeFillChannel(String exchange) {
+		return mapExchangeFillChannel.get(exchange);
+	}
+	
+	public void setExchangeFillChannel(String exchange, String fillChannel) {
+		mapExchangeFillChannel.put(exchange, fillChannel);
 	}
 	
 	public void addApiKeySecret(String exchange, String userName, String apiKey, String secret) {

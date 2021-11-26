@@ -305,15 +305,15 @@ public class GridStrategy extends AbstractStrategy {
 		processFill(lstFill);
 	}
 	
-	private void checkFillRest() {
-		ZonedDateTime zonedDateTime = ZonedDateTime.now();
-		to = zonedDateTime.toEpochSecond() * 1000;
-		List<Fill> lstFill = exchangeManager.getFillHistory(tradingExchange, userName, symbol, from, to);
-		if (lstFill == null) return;
-		from = to;
-		
-		processFill(lstFill);
-	}
+//	private void checkFillRest() {
+//		ZonedDateTime zonedDateTime = ZonedDateTime.now();
+//		to = zonedDateTime.toEpochSecond() * 1000;
+//		List<Fill> lstFill = exchangeManager.getFillHistory(tradingExchange, userName, symbol, from, to);
+//		if (lstFill == null) return;
+//		from = to;
+//		
+//		processFill(lstFill);
+//	}
 	
 	private void processFill(List<Fill> lst) {
 		for (Fill fill : lst) {

@@ -160,10 +160,10 @@ public class GiGStrategy extends AbstractStrategy {
 	@Override
 	public void strategyAction() {
 		// from websocket, Fake exchange use this
-//		checkFill();
+		checkFill();
 		
 		// for some exchange had unstable websocket connection
-		checkFillRest();
+//		checkFillRest();
 
 		// 策略剛啟動鋪單
 		if (setOrderId.size() == 0) {
@@ -216,15 +216,15 @@ public class GiGStrategy extends AbstractStrategy {
 		processFill(lstFill);
 	}
 	
-	private void checkFillRest() {
-		ZonedDateTime zonedDateTime = ZonedDateTime.now();
-		to = zonedDateTime.toEpochSecond() * 1000;
-		List<Fill> lstFill = exchangeManager.getFillHistory(tradingExchange, userName, symbol, from, to);
-		if (lstFill == null) return;
-		from = to;
-		
-		processFill(lstFill);
-	}
+//	private void checkFillRest() {
+//		ZonedDateTime zonedDateTime = ZonedDateTime.now();
+//		to = zonedDateTime.toEpochSecond() * 1000;
+//		List<Fill> lstFill = exchangeManager.getFillHistory(tradingExchange, userName, symbol, from, to);
+//		if (lstFill == null) return;
+//		from = to;
+//		
+//		processFill(lstFill);
+//	}
 	
 	private void processFill(List<Fill> lst) {
 		for (Fill fill : lst) {

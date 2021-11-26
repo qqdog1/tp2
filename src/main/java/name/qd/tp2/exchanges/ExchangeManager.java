@@ -31,12 +31,14 @@ public class ExchangeManager {
 		return instance;
 	}
 	
-	public void initExchange(String exchange, String env) {
+	public void initExchange(String exchange, String ... customize) {
 		if(!mapExchange.containsKey(exchange)) {
 			if(BTSE_EXCHANGE.equals(exchange)) {
 				mapExchange.put(BTSE_EXCHANGE, 
-						new BTSEFuturesExchange(ExchangeSettings.getExchangeRestUrlByEnv(exchange, env),
-												ExchangeSettings.getExchangeWSUrlByEnv(exchange, env)));
+						// TODO 看怎麼修 上面的param不要傳array 下面不要抓index
+						new BTSEFuturesExchange(ExchangeSettings.getExchangeRestUrlByEnv(exchange, customize[0]),
+												ExchangeSettings.getExchangeWSUrlByEnv(exchange, customize[0]),
+												customize[1]));
 			} else if(FAKE_EXCHANGE.equals(exchange)) {
 				mapExchange.put(FAKE_EXCHANGE, new FakeExchange("", ""));
 			} else {
@@ -86,10 +88,6 @@ public class ExchangeManager {
 	
 	public List<Fill> getFill(String strategyName, String exchange) {
 		return mapExchange.get(exchange).getFill(strategyName);
-	}
-	
-	public List<Fill> getFillHistory(String exchange, String username, String symbol, long startTime, long endTime) {
-		return mapExchange.get(exchange).getFillHistory(username, symbol, startTime, endTime);
 	}
 	
 	public String sendOrder(String strategyName, String exchange, String userName, String symbol, BuySell buySell, double price, double qty) {

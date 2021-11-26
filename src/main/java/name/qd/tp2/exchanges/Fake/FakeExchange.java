@@ -68,11 +68,6 @@ public class FakeExchange extends AbstractExchange {
 	}
 
 	@Override
-	public List<Fill> getFillHistory(String username, String symbol, long startTime, long endTime) {
-		return null;
-	}
-
-	@Override
 	public String sendLimitOrder(String userName, String strategyName, String symbol, BuySell buySell, double price, double qty) {
 		UUID uuid = UUID.randomUUID();
 		mapOrderIdToStrategy.put(uuid.toString(), strategyName);

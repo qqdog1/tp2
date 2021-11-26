@@ -7,6 +7,7 @@ import name.qd.tp2.exchanges.vo.ApiKeySecret;
 public interface StrategyConfig {
 	public Set<String> getAllExchange();
 	public String getExchangeEvn(String exchange);
+	public String getExchangeFillChannel(String exchange);
 	public Set<String> getAllSymbols(String exchange);
 	public void addSymbol(String exchange, String symbol);
 	public String getCustomizeSettings(String key);

@@ -2,6 +2,7 @@ package name.qd.tp2.exchanges.BTSE;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -9,6 +10,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -41,6 +44,8 @@ import okhttp3.WebSocket;
 import okhttp3.WebSocketListener;
 
 public class BTSEFuturesExchange extends AbstractExchange {
+	private static String FILL_CHANNEL_WS = "ws";
+	private static String FILL_CHANNEL_REST = "restful";
 	private Logger log = LoggerFactory.getLogger(BTSEFuturesExchange.class);
 	private final ExecutorService executor = Executors.newSingleThreadExecutor();
 	private final ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
@@ -58,22 +63,48 @@ public class BTSEFuturesExchange extends AbstractExchange {
 	private Map<Integer, List<Fill>> mapUnknownFill = new HashMap<>();
 
 	private MediaType MEDIA_TYPE_JSON = MediaType.parse("application/json; charset=utf-8");
+	// fill從哪來的 websocket or restful api
+	private String fillChannel;
+	private Timer timer;
+	private long from;
+	private long to;
 	
-	public BTSEFuturesExchange(String restUrl, String wsUrl) {
+	public BTSEFuturesExchange(String restUrl, String wsUrl, String fillChannel) {
 		super(restUrl, wsUrl);
 		
 		executor.execute(channelMessageHandler);
 		scheduledExecutorService.scheduleAtFixedRate(new UnknownFillRunner(), 0, 1, TimeUnit.SECONDS);
 		scheduledExecutorService.scheduleAtFixedRate(new QueryFillRunner(), 60, 60, TimeUnit.SECONDS);
+		this.fillChannel = fillChannel;
 		if (webSocket == null)
 			initWebSocket(webSocketListener);
+		if(FILL_CHANNEL_REST.equals(fillChannel)) {
+			ZonedDateTime zonedDateTime = ZonedDateTime.now();
+			from = zonedDateTime.toEpochSecond() * 1000;
+			to = zonedDateTime.toEpochSecond() * 1000;
+			// 定時query
+			timer = new Timer();
+		}
 	}
 
 	public void addUser(String userName, ApiKeySecret apiKeySecret) {
 		// TODO websocket 這樣一個user要一個connection
 		super.addUser(userName, apiKeySecret);
 		websocketLogin(userName);
-		subscribeFill(userName);
+		if(FILL_CHANNEL_WS.equals(fillChannel)) {
+			subscribeFill(userName);
+		} else if(FILL_CHANNEL_REST.equals(fillChannel)) {
+			timer.schedule(new TimerTask() {
+				@Override
+				public void run() {
+					ZonedDateTime zonedDateTime = ZonedDateTime.now();
+					to = zonedDateTime.toEpochSecond() * 1000;
+					List<Fill> lstFill = getFillHistory(userName, from, to);
+					if (lstFill == null) return;
+					from = to;
+				}
+			}, 0, 1000);
+		}
 	}
 
 	private void websocketLogin(String userName) {
@@ -173,13 +204,11 @@ public class BTSEFuturesExchange extends AbstractExchange {
 		return sendOrder(strategyName, userName, objectNode);
 	}
 	
-	@Override
-	public List<Fill> getFillHistory(String userName, String symbol, long startTime, long endTime) {
+	public List<Fill> getFillHistory(String userName, long startTime, long endTime) {
 		ObjectNode objectNode = JsonUtils.objectMapper.createObjectNode();
 		objectNode.put("count", 100);
 		objectNode.put("endTime", endTime);
 		objectNode.put("startTime", startTime);
-		objectNode.put("symbol", symbol);
 		
 		ApiKeySecret apiKeySecret = getApiKeySecret(userName);
 		String nonce = String.valueOf(System.currentTimeMillis());
@@ -341,7 +370,9 @@ public class BTSEFuturesExchange extends AbstractExchange {
 		}
 		for(String userName : getAllUser()) {
 			websocketLogin(userName);
-			subscribeFill(userName);
+			if(FILL_CHANNEL_WS.equals(fillChannel)) {
+				subscribeFill(userName);
+			}
 		}
 	}
 
@@ -410,6 +441,21 @@ public class BTSEFuturesExchange extends AbstractExchange {
 			fill.setFee(jsonNode.get("feeAmount").asText());
 			fill.setTimestamp(jsonNode.get("timestamp").asLong());
 			lst.add(fill);
+			
+			String orderId = fill.getOrderId();
+			String strategyName = mapOrderIdToStrategy.get(orderId);
+			String userName = mapOrderIdToUserName.get(orderId);
+			
+			if (strategyName != null) {
+				fill.setUserName(userName);
+				addFill(strategyName, fill);
+			} else {
+				log.warn("Received unknown fill, put to unknown fill cache.");
+				if (!mapUnknownFill.containsKey(1)) {
+					mapUnknownFill.put(1, new ArrayList<>());
+				}
+				mapUnknownFill.get(1).add(fill);
+			}
 		}
 		return lst;
 	}
