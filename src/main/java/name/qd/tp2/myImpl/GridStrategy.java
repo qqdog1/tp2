@@ -9,6 +9,7 @@ import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.text.SimpleDateFormat;
 import java.time.ZonedDateTime;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
@@ -100,6 +101,11 @@ public class GridStrategy extends AbstractStrategy {
 	private Grid1StrategyStatus grid1StrategyStatus;
 	
 	private String tradingExchange;
+	
+	private Long dateTimestamp;
+	private static long DAY_MILLIS = 86400000L;
+	
+	private double dailyProfit;
 
 	public GridStrategy(StrategyConfig strategyConfig) {
 		super(strategyConfig);
@@ -126,6 +132,13 @@ public class GridStrategy extends AbstractStrategy {
 		fileCacheManager = new FileCacheManager("./grid1");
 
 		initAndRestoreCache();
+		
+		Calendar calendar = Calendar.getInstance();
+		calendar.set(Calendar.HOUR_OF_DAY, 0);
+		calendar.set(Calendar.MINUTE, 0);
+		calendar.set(Calendar.SECOND, 0);
+		calendar.set(Calendar.MILLISECOND, 0);
+		dateTimestamp = calendar.getTimeInMillis();
 	}
 	
 	private void initNotifyTool() {
@@ -244,6 +257,10 @@ public class GridStrategy extends AbstractStrategy {
 		}
 		
 		checkGoogleDriveTmpFile();
+		
+		if(isDayChange()) {
+			clearRecord();
+		}
 
 		// 給GTC多一點時間 且電腦要爆了
 		try {
@@ -407,9 +424,9 @@ public class GridStrategy extends AbstractStrategy {
 	private void calcProfit(double qty, double price, double fee) {
 		double priceDiff = price - grid1StrategyStatus.getAveragePrice();
 		double profit = (priceDiff * qty / 100) - fee;
-		sendLineMessage(strategyName + " 停利單成交: " + qty, "獲利: " + profit);
+		dailyProfit += profit;
+		sendLineMessage(strategyName + " 停利單成交: " + qty, "獲利: " + profit, "今日獲利: " + dailyProfit);
 		writeGDRecord(strategyName, price, -qty, fee, sdfTime.format(new Date()));
-		log.info("獲利: {}", profit);
 	}
 	
 	private void sendLineMessage(String ... message) {
@@ -438,6 +455,18 @@ public class GridStrategy extends AbstractStrategy {
 		}
 		String s = sb.toString();
 		return s.substring(0, s.length() - 1);
+	}
+	
+	private boolean isDayChange() {
+		if(System.currentTimeMillis() - dateTimestamp > DAY_MILLIS) {
+			dateTimestamp += DAY_MILLIS;
+			return true;
+		}
+		return false;
+	}
+	
+	private void clearRecord() {
+		dailyProfit = 0;
 	}
 
 	public static void main(String[] s) {
