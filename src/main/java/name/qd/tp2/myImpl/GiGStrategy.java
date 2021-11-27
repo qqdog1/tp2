@@ -44,7 +44,7 @@ public class GiGStrategy extends AbstractStrategy {
 	// 與交易所溝通用
 	private ExchangeManager exchangeManager = ExchangeManager.getInstance();
 
-	private String strategyName = "[GiG]";
+	private static String strategyName = "[GiG]";
 	private String userName = "shawn";
 
 	// 自己設定一些策略內要用的變數
@@ -82,7 +82,7 @@ public class GiGStrategy extends AbstractStrategy {
 	private String tradingExchange;
 
 	public GiGStrategy(StrategyConfig strategyConfig) {
-		super(strategyConfig);
+		super(strategyName, strategyConfig);
 
 		// config settings for g1
 		g1PriceRange = new BigDecimal(strategyConfig.getCustomizeSettings("g1_priceRange"));

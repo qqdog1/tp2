@@ -10,6 +10,8 @@ public interface StrategyConfig {
 	public String getExchangeFillChannel(String exchange);
 	public Set<String> getAllSymbols(String exchange);
 	public void addSymbol(String exchange, String symbol);
+	public String getTrailingType();
+	public double getTrailingValue();
 	public String getCustomizeSettings(String key);
 	
 	public Set<String> getAllUser(String exchange);

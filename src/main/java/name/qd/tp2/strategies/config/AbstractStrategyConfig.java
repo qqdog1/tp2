@@ -14,6 +14,8 @@ public abstract class AbstractStrategyConfig implements StrategyConfig {
 	private Map<String, String> mapCustomize = new HashMap<>();
 	private Map<String, String> mapExchangeEnv = new HashMap<>();
 	private Map<String, String> mapExchangeFillChannel = new HashMap<>();
+	private String trailingType;
+	private double trailingValue;
 	
 	public void addExchange(String exchange) {
 		if(!mapTradingPair.containsKey(exchange)) {
@@ -67,6 +69,22 @@ public abstract class AbstractStrategyConfig implements StrategyConfig {
 	
 	public ApiKeySecret getApiKeySecret(String exchange, String userName) {
 		return mapApiKeys.get(exchange).get(userName);
+	}
+	
+	public String getTrailingType() {
+		return trailingType;
+	}
+	
+	public void setTrailingType(String trailingType) {
+		this.trailingType = trailingType;
+	}
+	
+	public double getTrailingValue() {
+		return trailingValue;
+	}
+	
+	public void setTrailingValue(double trailingValue) {
+		this.trailingValue = trailingValue;
 	}
 	
 	public void addCustomizeSettings(String key, String value) {

@@ -48,7 +48,7 @@ public class Grid2Strategy extends AbstractStrategy {
 	// 與交易所溝通用
 	private ExchangeManager exchangeManager = ExchangeManager.getInstance();
 
-	private String strategyName = "[上下爆吸]";
+	private static String strategyName = "[上下爆吸]";
 	private String userName = "shawn";
 
 	// 自己設定一些策略內要用的變數
@@ -85,7 +85,7 @@ public class Grid2Strategy extends AbstractStrategy {
 	private String tradingExchange;
 
 	public Grid2Strategy(StrategyConfig strategyConfig) {
-		super(strategyConfig);
+		super(strategyName, strategyConfig);
 
 		// 把設定值從config讀出來
 		priceRange = Integer.parseInt(strategyConfig.getCustomizeSettings("priceRange"));

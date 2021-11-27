@@ -3,6 +3,9 @@
     {
       "exchange": "BTSE",
       "env": "production",
+      "fillChannel": "restful",
+      "trailingType": "FIX",
+      "trailingValue": 8,
       "symbol": [
         "ETHPFC"
       ],

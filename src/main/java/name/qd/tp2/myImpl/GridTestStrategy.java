@@ -45,7 +45,7 @@ public class GridTestStrategy extends AbstractStrategy {
 	private static String userName = "shawn";
 
 	public GridTestStrategy(StrategyConfig strategyConfig) {
-		super(strategyConfig);
+		super(strategyName, strategyConfig);
 		
 		// 把設定值從config讀出來
 		priceRange = Integer.parseInt(strategyConfig.getCustomizeSettings("priceRange"));

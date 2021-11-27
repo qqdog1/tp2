@@ -1,26 +1,44 @@
 package name.qd.tp2.strategies;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import name.qd.tp2.constants.BuySell;
 import name.qd.tp2.exchanges.ExchangeManager;
 import name.qd.tp2.exchanges.vo.Fill;
+import name.qd.tp2.exchanges.vo.Orderbook;
+import name.qd.tp2.exchanges.vo.TrailingOrder;
 import name.qd.tp2.strategies.config.StrategyConfig;
+import name.qd.tp2.utils.PriceUtils;
 
 public abstract class AbstractStrategy implements Strategy {
 	private Logger log = LoggerFactory.getLogger(AbstractStrategy.class); 
 	protected ExchangeManager exchangeManager = ExchangeManager.getInstance();
 	private final ExecutorService executor = Executors.newSingleThreadExecutor();
 	
+	protected String strategyName;
 	protected StrategyConfig strategyConfig;
 	private boolean isStrategyReady = false;
 	
-	public AbstractStrategy(StrategyConfig strategyConfig) {
+	private Map<String, TrailingOrder> mapTrailingOrder = new HashMap<>();
+	// order id from exchange, 自編order id
+	private Map<String, String> mapTrailingOrderId = new HashMap<>();
+	
+	private List<Fill> lstFill;
+	
+	public AbstractStrategy(String strategyName, StrategyConfig strategyConfig) {
+		this.strategyName = strategyName;
 		this.strategyConfig = strategyConfig;
 		
 		initAllExchange();
@@ -56,6 +74,31 @@ public abstract class AbstractStrategy implements Strategy {
 	}
 	
 	public abstract void strategyAction();
+	
+	protected String sendTrailingOrder(String strategyName, String exchange, String userName, String symbol, BuySell buySell, double price, double qty, BigDecimal tickSize) {
+		TrailingOrder trailingOrder = new TrailingOrder();
+		trailingOrder.setStrategyName(strategyName);
+		trailingOrder.setExchange(exchange);
+		trailingOrder.setUserName(userName);
+		trailingOrder.setSymbol(symbol);
+		trailingOrder.setBuySell(buySell);
+		BigDecimal bigDecimal = PriceUtils.trimPriceWithTicksize(BigDecimal.valueOf(price), tickSize, RoundingMode.UP);
+		trailingOrder.setPrice(bigDecimal.doubleValue());
+		trailingOrder.setQty(qty);
+		
+		String uuid = UUID.randomUUID().toString();
+		mapTrailingOrder.put(uuid, trailingOrder);
+		return uuid;
+	}
+	
+	protected String sendLimitOrder(String strategyName, String exchange, String userName, String symbol, BuySell buySell, double price, double qty, BigDecimal tickSize) {
+		BigDecimal bigDecimal = PriceUtils.trimPriceWithTicksize(BigDecimal.valueOf(price), tickSize, RoundingMode.UP);
+		return exchangeManager.sendLimitOrder(strategyName, exchange, userName, symbol, buySell, bigDecimal.doubleValue(), qty);
+	}
+	
+	protected String sendMarketOrder(String strategyName, String exchange, String userName, String symbol, BuySell buySell, double qty) {
+		return exchangeManager.sendMarketOrder(strategyName, exchange, userName, symbol, buySell, qty);
+	}
 	
 	private void initAllExchange() {
 		Set<String> exchanges = strategyConfig.getAllExchange();
@@ -98,10 +141,109 @@ public abstract class AbstractStrategy implements Strategy {
 		}
 	}
 	
+	private void checkTrailingPrice() {
+		for(String uuid : mapTrailingOrder.keySet()) {
+			TrailingOrder trailingOrder = mapTrailingOrder.get(uuid);
+			Orderbook orderbook = exchangeManager.getOrderbook(trailingOrder.getExchange(), trailingOrder.getSymbol());
+			BuySell buySell = trailingOrder.getBuySell();
+			
+			if(trailingOrder.getTrailingStatus() == TrailingOrder.TRAILING_STATUS_NONE) {
+				// 等待過界
+				if(buySell == BuySell.BUY) {
+					// 買單低於
+					double marketSellPrice = orderbook.getAskTopPrice(1)[0];
+					if(marketSellPrice <= trailingOrder.getPrice()) {
+						trailingOrder.setTrailingStatus(TrailingOrder.TRAILING_STATUS_TRIIGERED);
+						trailingOrder.setEdgePrice(marketSellPrice);
+					}
+				} else {
+					double marketBuyPrice = orderbook.getBidTopPrice(1)[0];
+					if(marketBuyPrice >= trailingOrder.getPrice()) {
+						trailingOrder.setTrailingStatus(TrailingOrder.TRAILING_STATUS_TRIIGERED);
+						trailingOrder.setEdgePrice(marketBuyPrice);
+					}
+				}
+			} else if(trailingOrder.getTrailingStatus() == TrailingOrder.TRAILING_STATUS_TRIIGERED) {
+				// 算最新邊境價格 或是已經 pull back
+				double edgePrice = trailingOrder.getEdgePrice();
+				if(buySell == BuySell.BUY) {
+					double marketSellPrice = orderbook.getAskTopPrice(1)[0];
+					
+					if(marketSellPrice < edgePrice) {
+						trailingOrder.setEdgePrice(marketSellPrice);
+					} else {
+						// 市場賣單已經高於邊境價格 回彈中
+						
+						// 市場賣單已經高於下單價格
+						if(marketSellPrice > trailingOrder.getPrice()) {
+							sendLimitOrder(uuid, trailingOrder);
+						} else if(marketSellPrice >= edgePrice + strategyConfig.getTrailingValue()) {
+							trailingOrder.setPrice(marketSellPrice);
+							sendLimitOrder(uuid, trailingOrder);
+						}
+					}
+				} else {
+					double marketBuyPrice = orderbook.getBidTopPrice(1)[0];
+					
+					if(marketBuyPrice > edgePrice) {
+						trailingOrder.setEdgePrice(marketBuyPrice);
+					} else {
+						if(marketBuyPrice < trailingOrder.getPrice()) {
+							sendLimitOrder(uuid, trailingOrder);
+						} else if(marketBuyPrice <= edgePrice - strategyConfig.getTrailingValue()) {
+							trailingOrder.setPrice(marketBuyPrice);
+							sendLimitOrder(uuid, trailingOrder);
+						}
+					}
+				}
+			}
+		}
+	}
+	
+	private void sendLimitOrder(String uuid, TrailingOrder trailingOrder) {
+		String orderId = sendLimitOrder(trailingOrder.getStrategyName(), trailingOrder.getExchange(), trailingOrder.getUserName(), trailingOrder.getSymbol(), trailingOrder.getBuySell(), trailingOrder.getPrice(), trailingOrder.getQty(), BigDecimal.ZERO);
+		if(orderId == null) {
+			log.error("Send order failed.");
+			return;
+		}
+		
+		trailingOrder.setTrailingStatus(TrailingOrder.TRAILING_STATUS_SENDED);
+		mapTrailingOrderId.put(orderId, uuid);
+	}
+	
+	private void checkFill() {
+		for(String exchange : strategyConfig.getAllExchange()) {
+			List<Fill> lst = exchangeManager.getFill(strategyName, exchange);
+			
+			for(Fill fill : lst) {
+				if(mapTrailingOrderId.containsKey(fill.getOrderId())) {
+					String trailingOrderId = mapTrailingOrderId.get(fill.getOrderId());
+					fill.setOrderId(trailingOrderId);
+				}
+			}
+			
+			lstFill.addAll(lst);
+		}
+	}
+	
+	protected List<Fill> getFill() {
+		List<Fill> lst = new ArrayList<>(lstFill);
+		lstFill.clear();
+		return lst;
+	}
+	
 	private class StrategyCycle implements Runnable {
 		@Override
 		public void run() {
 			while (!Thread.currentThread().isInterrupted()) {
+				// check trailing price
+				checkTrailingPrice();
+				
+				// check trailing fill
+				// 把fill先拿出來檢查trailing
+				// 因為trailing是自編orderId
+				checkFill();
+				
 				strategyAction();
 				
 				// 睡一下電腦要爆了

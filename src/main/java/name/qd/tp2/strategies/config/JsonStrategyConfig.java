@@ -35,6 +35,13 @@ public class JsonStrategyConfig extends AbstractStrategyConfig {
 				String fillChannel = exchangeNode.get("fillChannel").asText();
 				setExchangeFillChannel(exchange, fillChannel);
 			}
+			if(exchangeNode.has("trailingType")) {
+				String trailingType = exchangeNode.get("trailingType").asText();
+				setTrailingType(trailingType);
+				
+				double trailingValue = exchangeNode.get("trailingValue").asDouble();
+				setTrailingValue(trailingValue);
+			}
 			
 			for(JsonNode symbolNode : exchangeNode.get("symbol")) {
 				addSymbol(exchange, symbolNode.asText());

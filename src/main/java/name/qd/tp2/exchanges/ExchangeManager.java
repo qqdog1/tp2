@@ -98,6 +98,14 @@ public class ExchangeManager {
 		}
 	}
 	
+	public String sendLimitOrder(String strategyName, String exchange, String userName, String symbol, BuySell buySell, double price, double qty) {
+		return mapExchange.get(exchange).sendLimitOrder(userName, strategyName, symbol, buySell, price, qty);
+	}
+	
+	public String sendMarketOrder(String strategyName, String exchange, String userName, String symbol, BuySell buySell, double qty) {
+		return mapExchange.get(exchange).sendMarketOrder(userName, strategyName, symbol, buySell, qty);
+	}
+	
 	public boolean cancelOrder(String strategyName, String exchange, String userName, String symbol, String orderId) {
 		return mapExchange.get(exchange).cancelOrder(userName, strategyName, symbol, orderId);
 	}
