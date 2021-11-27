@@ -35,7 +35,7 @@ public abstract class AbstractStrategy implements Strategy {
 	// order id from exchange, 自編order id
 	private Map<String, String> mapTrailingOrderId = new HashMap<>();
 	
-	private List<Fill> lstFill;
+	private List<Fill> lstFill = new ArrayList<>();
 	
 	public AbstractStrategy(String strategyName, StrategyConfig strategyConfig) {
 		this.strategyName = strategyName;
@@ -75,7 +75,7 @@ public abstract class AbstractStrategy implements Strategy {
 	
 	public abstract void strategyAction();
 	
-	protected String sendTrailingOrder(String strategyName, String exchange, String userName, String symbol, BuySell buySell, double price, double qty, BigDecimal tickSize) {
+	protected String sendTrailingOrder(String exchange, String userName, String symbol, BuySell buySell, double price, double qty, BigDecimal tickSize) {
 		TrailingOrder trailingOrder = new TrailingOrder();
 		trailingOrder.setStrategyName(strategyName);
 		trailingOrder.setExchange(exchange);
@@ -91,12 +91,40 @@ public abstract class AbstractStrategy implements Strategy {
 		return uuid;
 	}
 	
-	protected String sendLimitOrder(String strategyName, String exchange, String userName, String symbol, BuySell buySell, double price, double qty, BigDecimal tickSize) {
+	protected boolean cancelOrder(String exchange, String userName, String symbol, String orderId) {
+		String exId = null;
+		boolean cancelSuccess = false;
+		if(mapTrailingOrder.containsKey(orderId)) {
+			// trailing order
+			for(String exOrderId : mapTrailingOrderId.keySet()) {
+				if(mapTrailingOrderId.get(exOrderId).equals(orderId)) {
+					exId = exOrderId;
+					break;
+				}
+			}
+			
+			if(exId != null) {
+				cancelSuccess = exchangeManager.cancelOrder(strategyName, exchange, userName, symbol, exId);
+			}
+		} else {
+			// normal order
+			return exchangeManager.cancelOrder(strategyName, exchange, userName, symbol, orderId);
+		}
+		
+		if(cancelSuccess) {
+			mapTrailingOrder.remove(orderId);
+			mapTrailingOrderId.remove(exId);
+		}
+		
+		return cancelSuccess;
+	}
+	
+	protected String sendLimitOrder(String exchange, String userName, String symbol, BuySell buySell, double price, double qty, BigDecimal tickSize) {
 		BigDecimal bigDecimal = PriceUtils.trimPriceWithTicksize(BigDecimal.valueOf(price), tickSize, RoundingMode.UP);
 		return exchangeManager.sendLimitOrder(strategyName, exchange, userName, symbol, buySell, bigDecimal.doubleValue(), qty);
 	}
 	
-	protected String sendMarketOrder(String strategyName, String exchange, String userName, String symbol, BuySell buySell, double qty) {
+	protected String sendMarketOrder(String exchange, String userName, String symbol, BuySell buySell, double qty) {
 		return exchangeManager.sendMarketOrder(strategyName, exchange, userName, symbol, buySell, qty);
 	}
 	
@@ -201,7 +229,7 @@ public abstract class AbstractStrategy implements Strategy {
 	}
 	
 	private void sendLimitOrder(String uuid, TrailingOrder trailingOrder) {
-		String orderId = sendLimitOrder(trailingOrder.getStrategyName(), trailingOrder.getExchange(), trailingOrder.getUserName(), trailingOrder.getSymbol(), trailingOrder.getBuySell(), trailingOrder.getPrice(), trailingOrder.getQty(), BigDecimal.ZERO);
+		String orderId = sendLimitOrder(trailingOrder.getExchange(), trailingOrder.getUserName(), trailingOrder.getSymbol(), trailingOrder.getBuySell(), trailingOrder.getPrice(), trailingOrder.getQty(), BigDecimal.ZERO);
 		if(orderId == null) {
 			log.error("Send order failed.");
 			return;

@@ -2,13 +2,11 @@ package name.qd.tp2.myImpl;
 
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.text.SimpleDateFormat;
-import java.time.ZonedDateTime;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashSet;
@@ -93,9 +91,6 @@ public class GridStrategy extends AbstractStrategy {
 	private String googleCredentialsPath;
 	private String currentWorkingFile;
 
-	private long from;
-	private long to;
-
 	private FileCacheManager fileCacheManager;
 	private NormalCacheManager grid1CacheManager;
 	private Grid1StrategyStatus grid1StrategyStatus;
@@ -125,10 +120,6 @@ public class GridStrategy extends AbstractStrategy {
 		// notification
 		initNotifyTool();
 
-		ZonedDateTime zonedDateTime = ZonedDateTime.now();
-		from = zonedDateTime.toEpochSecond() * 1000;
-		to = zonedDateTime.toEpochSecond() * 1000;
-
 		fileCacheManager = new FileCacheManager("./grid1");
 
 		initAndRestoreCache();
@@ -145,7 +136,7 @@ public class GridStrategy extends AbstractStrategy {
 		if(lineNotify != null && !"".equals(lineNotify)) {
 			lineNotifyUtils = new LineNotifyUtils(lineNotify);
 		}
-		if(googleDriveFolderId != null && googleCredentialsPath != null) {
+		if(googleDriveFolderId != null && !"".equals(googleDriveFolderId) && googleCredentialsPath != null) {
 			if(!"".equals(googleDriveFolderId) && !"".equals(googleCredentialsPath)) {
 				googleDriveUtils = new GoogleDriveUtils("grid strategy record", googleCredentialsPath, TMP_FOLDER);
 				syncTodayRecord();
@@ -202,7 +193,7 @@ public class GridStrategy extends AbstractStrategy {
 					qty -= remainPosition;
 					remainPosition = 0;
 					
-					String orderId = sendOrder(BuySell.BUY, basePrice, qty);
+					String orderId = sendTrailingOrder(tradingExchange, userName, symbol, BuySell.BUY, basePrice, qty, tickSize);
 					if (orderId != null) {
 						log.info("鋪單 {} {} {} {}", i, basePrice, qty, orderId);
 						setOrderId.add(orderId);
@@ -222,10 +213,13 @@ public class GridStrategy extends AbstractStrategy {
 		
 		// for some exchange had unstable websocket connection
 //		checkFillRest();
+		
+		Orderbook orderbook = exchangeManager.getOrderbook(tradingExchange, symbol);
+		log.info("Current price : {}, {}", orderbook.getBidTopPrice(1)[0], orderbook.getAskTopPrice(1)[0]);
 
 		// 策略剛啟動鋪單
 		if (setOrderId.size() == 0) {
-			Orderbook orderbook = exchangeManager.getOrderbook(tradingExchange, symbol);
+			orderbook = exchangeManager.getOrderbook(tradingExchange, symbol);
 			if (orderbook == null) return;
 			double price = orderbook.getBidTopPrice(1)[0];
 			// 紀錄下第一單時 當下的市場價格
@@ -242,24 +236,26 @@ public class GridStrategy extends AbstractStrategy {
 			checkCurrentPrice();
 		}
 		
-		if(System.currentTimeMillis() - gdLastUpdateTime > 10000) {
-			if(gdDirtyFlag) {
-				// upsert
-				String fileId = googleDriveUtils.getFileId(currentWorkingFile, googleDriveFolderId);
-				if(fileId == null) {
-					googleDriveUtils.uploadFile(TMP_FOLDER + "/" + currentWorkingFile, googleDriveFolderId, "text/csv");
-				} else {
-					googleDriveUtils.updateFile(TMP_FOLDER + "/" + currentWorkingFile, fileId, googleDriveFolderId, "text/csv");
+		if(googleDriveUtils != null) {
+			if(System.currentTimeMillis() - gdLastUpdateTime > 10000) {
+				if(gdDirtyFlag) {
+					// upsert
+					String fileId = googleDriveUtils.getFileId(currentWorkingFile, googleDriveFolderId);
+					if(fileId == null) {
+						googleDriveUtils.uploadFile(TMP_FOLDER + "/" + currentWorkingFile, googleDriveFolderId, "text/csv");
+					} else {
+						googleDriveUtils.updateFile(TMP_FOLDER + "/" + currentWorkingFile, fileId, googleDriveFolderId, "text/csv");
+					}
+					gdLastUpdateTime = System.currentTimeMillis();
+					gdDirtyFlag = false;
 				}
-				gdLastUpdateTime = System.currentTimeMillis();
-				gdDirtyFlag = false;
 			}
-		}
-		
-		checkGoogleDriveTmpFile();
-		
-		if(isDayChange()) {
-			clearRecord();
+			
+			checkGoogleDriveTmpFile();
+			
+			if(isDayChange()) {
+				clearRecord();
+			}
 		}
 
 		// 給GTC多一點時間 且電腦要爆了
@@ -283,7 +279,7 @@ public class GridStrategy extends AbstractStrategy {
 				if (price >= stopProfitPrice.doubleValue()) {
 					log.info("價格上漲 重新鋪單");
 					// 刪除所有鋪單
-					cancelOrder(null);
+					sendCancelOrder(null);
 				}
 			}
 		}
@@ -300,7 +296,8 @@ public class GridStrategy extends AbstractStrategy {
 	private void checkFill() {
 		// TODO 測試Fake Exchange要改回這個
 		// 或是有穩定的websocket的交易所可用這個
-		List<Fill> lstFill = exchangeManager.getFill(strategyName, tradingExchange);
+//		List<Fill> lstFill = exchangeManager.getFill(strategyName, tradingExchange);
+		List<Fill> lstFill = getFill();
 		
 		processFill(lstFill);
 	}
@@ -336,7 +333,7 @@ public class GridStrategy extends AbstractStrategy {
 					// 重算目標價
 					targetPrice = PriceUtils.getStopProfitPrice(BigDecimal.valueOf(grid1StrategyStatus.getAveragePrice()), stopProfitType, stopProfit);
 					// 刪除之前鋪單
-					cancelOrder(null);
+					sendCancelOrder(null);
 				} else {
 					log.warn("停利單部分成交 {}, {} {}", fill.getFillPrice(), fill.getQty(), fill.getOrderId());
 					calcProfit(qty, fillPrice, Double.parseDouble(fill.getFee()));
@@ -350,7 +347,7 @@ public class GridStrategy extends AbstractStrategy {
 				grid1StrategyStatus.setPosition(grid1StrategyStatus.getPosition() + qty);
 				// 清除舊的停利單
 				if (stopProfitOrderId != null) {
-					if (!cancelOrder(stopProfitOrderId)) {
+					if (!sendCancelOrder(stopProfitOrderId)) {
 						log.error("清除舊的停利單失敗 orderId:{}", stopProfitOrderId);
 						sendLineMessage(strategyName + "清除舊的停利單失敗");
 					} else {
@@ -378,7 +375,7 @@ public class GridStrategy extends AbstractStrategy {
 			basePrice = basePrice - (priceRange.intValue() * Math.pow(2, i));
 			double qty = firstContractSize * Math.pow(2, i);
 			if (i == startLevel) {
-				String orderId = sendOrder(BuySell.BUY, basePrice, qty);
+				String orderId = sendTrailingOrder(tradingExchange, userName, symbol, BuySell.BUY, basePrice, qty, tickSize);
 				if (orderId != null) {
 					log.info("鋪單 {} {} {} {}", i, basePrice, qty, orderId);
 					setOrderId.add(orderId);
@@ -392,7 +389,7 @@ public class GridStrategy extends AbstractStrategy {
 	}
 
 	private void placeStopProfitOrder() {
-		String orderId = sendOrder(BuySell.SELL, targetPrice.doubleValue(), grid1StrategyStatus.getPosition());
+		String orderId = sendTrailingOrder(tradingExchange, userName, symbol, BuySell.SELL, targetPrice.doubleValue(), grid1StrategyStatus.getPosition(), tickSize);
 		if (orderId != null) {
 			stopProfitOrderId = orderId;
 			log.info("下停利單 {} {} {}", targetPrice, grid1StrategyStatus.getPosition(), orderId);
@@ -402,22 +399,22 @@ public class GridStrategy extends AbstractStrategy {
 		}
 	}
 
-	private String sendOrder(BuySell buySell, double price, double qty) {
-		BigDecimal bigDecimal = PriceUtils.trimPriceWithTicksize(BigDecimal.valueOf(price), tickSize, RoundingMode.UP);
-		return exchangeManager.sendOrder(strategyName, tradingExchange, userName, symbol, buySell, bigDecimal.doubleValue(), qty);
-	}
+//	private String sendOrder(BuySell buySell, double price, double qty) {
+//		BigDecimal bigDecimal = PriceUtils.trimPriceWithTicksize(BigDecimal.valueOf(price), tickSize, RoundingMode.UP);
+//		return exchangeManager.sendOrder(strategyName, tradingExchange, userName, symbol, buySell, bigDecimal.doubleValue(), qty);
+//	}
 
-	private boolean cancelOrder(String orderId) {
+	private boolean sendCancelOrder(String orderId) {
 		if (orderId == null) {
 			for (String id : setOrderId) {
 				if (id != null) {
-					exchangeManager.cancelOrder(strategyName, tradingExchange, userName, symbol, id);
+					cancelOrder(tradingExchange, userName, symbol, id);
 				}
 			}
 			setOrderId.clear();
 			return true;
 		} else {
-			return exchangeManager.cancelOrder(strategyName, tradingExchange, userName, symbol, orderId);
+			return cancelOrder(tradingExchange, userName, symbol, orderId);
 		}
 	}
 
@@ -474,8 +471,8 @@ public class GridStrategy extends AbstractStrategy {
 		prop.setProperty("log4j.configurationFile", "./config/log4j2.xml");
 
 		try {
-//			String configPath = "./config/testnet.json";
-			String configPath = "./config/grid.json";
+			String configPath = "./config/test.json";
+//			String configPath = "./config/grid.json";
 			GridStrategy strategy = new GridStrategy(new JsonStrategyConfig(configPath));
 			strategy.start();
 		} catch (Exception e) {
