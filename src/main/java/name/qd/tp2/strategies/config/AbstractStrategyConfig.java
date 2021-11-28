@@ -16,6 +16,7 @@ public abstract class AbstractStrategyConfig implements StrategyConfig {
 	private Map<String, String> mapExchangeFillChannel = new HashMap<>();
 	private String trailingType;
 	private double trailingValue;
+	private double pullbackTolerance;
 	
 	public void addExchange(String exchange) {
 		if(!mapTradingPair.containsKey(exchange)) {
@@ -85,6 +86,14 @@ public abstract class AbstractStrategyConfig implements StrategyConfig {
 	
 	public void setTrailingValue(double trailingValue) {
 		this.trailingValue = trailingValue;
+	}
+	
+	public double getPullbackTolerance() {
+		return pullbackTolerance;
+	}
+	
+	public void setPullbackTolerance(double pullbackTolerance) {
+		this.pullbackTolerance = pullbackTolerance;
 	}
 	
 	public void addCustomizeSettings(String key, String value) {

@@ -184,11 +184,12 @@ public abstract class AbstractStrategy implements Strategy {
 			BuySell buySell = trailingOrder.getBuySell();
 			
 			if(trailingOrder.getTrailingStatus() == TrailingOrder.TRAILING_STATUS_NONE) {
+				double pullbackTolerance = strategyConfig.getPullbackTolerance();
 				// 等待過界
 				if(buySell == BuySell.BUY) {
 					// 買單低於
 					double marketSellPrice = orderbook.getAskTopPrice(1)[0];
-					if(marketSellPrice <= trailingOrder.getPrice()) {
+					if(marketSellPrice <= trailingOrder.getPrice() - pullbackTolerance) {
 						trailingOrder.setTrailingStatus(TrailingOrder.TRAILING_STATUS_TRIIGERED);
 						trailingOrder.setEdgePrice(marketSellPrice);
 						
@@ -196,7 +197,7 @@ public abstract class AbstractStrategy implements Strategy {
 					}
 				} else {
 					double marketBuyPrice = orderbook.getBidTopPrice(1)[0];
-					if(marketBuyPrice >= trailingOrder.getPrice()) {
+					if(marketBuyPrice >= trailingOrder.getPrice() + pullbackTolerance) {
 						trailingOrder.setTrailingStatus(TrailingOrder.TRAILING_STATUS_TRIIGERED);
 						trailingOrder.setEdgePrice(marketBuyPrice);
 						

@@ -1,11 +1,12 @@
 {
   "generalSettings": [
     {
-      "exchange": "BTSE",
+      "exchange": "Fake",
       "env": "production",
       "fillChannel": "restful",
       "trailingType": "FIX",
       "trailingValue": 8,
+      "pullbackTolerance": 2,
       "symbol": [
         "ETHPFC"
       ],
@@ -25,7 +26,7 @@
 	"stopProfit": 20,
   	"tickSize": 0.05,
   	"orderLevel": 4,
-  	"tradingExchange": "BTSE",
+  	"tradingExchange": "Fake",
   	"lineNotify": "",
 	"googleDriveFolderId": "",
 	"googleCredentialsPath": "./config/credentials.json"

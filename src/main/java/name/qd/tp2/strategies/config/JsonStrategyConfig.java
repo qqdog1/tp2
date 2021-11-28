@@ -41,6 +41,9 @@ public class JsonStrategyConfig extends AbstractStrategyConfig {
 				
 				double trailingValue = exchangeNode.get("trailingValue").asDouble();
 				setTrailingValue(trailingValue);
+				
+				double pullbackTolerance = exchangeNode.get("pullbackTolerance").asDouble();
+				setPullbackTolerance(pullbackTolerance);
 			}
 			
 			for(JsonNode symbolNode : exchangeNode.get("symbol")) {
