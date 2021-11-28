@@ -47,7 +47,7 @@ public class FakeExchange extends AbstractExchange {
 
 	private void init() {
 		String[] states = new String[] {StateController.DOWN, StateController.UP, StateController.DOWN, StateController.UP, StateController.DOWN};
-		int[] times = new int[] {30, 50, 50, 70, 10};
+		int[] times = new int[] {50, 50, 50, 70, 10};
 		mapSymbolPrice.put("ETHPFC", new PriceSimulator(2900, states, times));
 	}
 	

@@ -105,7 +105,12 @@ public abstract class AbstractStrategy implements Strategy {
 				}
 			}
 			
+			log.info("cancel trailing order {}", orderId);
+			mapTrailingOrder.remove(orderId);
+			cancelSuccess = true;
+			// triggered的才會有exchange id
 			if(exId != null) {
+				log.info("cancel trailing order, already send to exchange {} {}", orderId, exId);
 				cancelSuccess = exchangeManager.cancelOrder(strategyName, exchange, userName, symbol, exId);
 			}
 		} else {
