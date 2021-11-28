@@ -139,7 +139,8 @@ public abstract class AbstractStrategy implements Strategy {
 		Set<String> exchanges = strategyConfig.getAllExchange();
 		for(String exchange : exchanges) {
 			String env = strategyConfig.getExchangeEvn(exchange);
-			exchangeManager.initExchange(exchange, env);
+			String fillChannel = strategyConfig.getExchangeFillChannel(exchange);
+			exchangeManager.initExchange(exchange, env, fillChannel);
 		}
 	}
 	
