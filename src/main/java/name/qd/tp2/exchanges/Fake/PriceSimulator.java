@@ -9,6 +9,10 @@ public class PriceSimulator {
 		this.startPrice = startPrice;
 	}
 	
+	public double current() {
+		return startPrice;
+	}
+	
 	public double next() {
 		String nextState = stateController.next();
 		if(StateController.UP.equals(nextState)) {

@@ -47,7 +47,7 @@ public class FakeExchange extends AbstractExchange {
 
 	private void init() {
 		String[] states = new String[] {StateController.DOWN, StateController.UP, StateController.DOWN, StateController.UP, StateController.DOWN};
-		int[] times = new int[] {30, 30, 50, 70, 20};
+		int[] times = new int[] {30, 50, 50, 70, 10};
 		mapSymbolPrice.put("ETHPFC", new PriceSimulator(2900, states, times));
 	}
 	
@@ -109,43 +109,47 @@ public class FakeExchange extends AbstractExchange {
 		@Override
 		public void run() {
 			for(String symbol : mapSymbolPrice.keySet()) {
+				double price = mapSymbolPrice.get(symbol).current();
+				
+				// fill
+				Map<String, Order> mapSymbolOrders = mapOrders.get(symbol);
+				if(mapSymbolOrders != null) {
+					List<String> lstRemoveOrderId = new ArrayList<>();
+					for(String orderId : mapSymbolOrders.keySet()) {
+						Order order = mapSymbolOrders.get(orderId);
+						BuySell buySell = order.getBuySell();
+						switch (buySell) {
+						case BUY:
+							if(order.getPrice() >= price + 1) {
+								Fill fill = toFill(order, orderId, symbol);
+								lstRemoveOrderId.add(orderId);
+								String strategyName = mapOrderIdToStrategy.get(orderId);
+								addFill(strategyName, fill);
+							}
+							break;
+						case SELL:
+							if(order.getPrice() <= price - 1) {
+								Fill fill = toFill(order, orderId, symbol);
+								lstRemoveOrderId.add(orderId);
+								String strategyName = mapOrderIdToStrategy.get(orderId);
+								addFill(strategyName, fill);
+							}
+							break;
+						}
+					}
+					
+					// remove
+					for(String orderId : lstRemoveOrderId) {
+						mapSymbolOrders.remove(orderId);
+					}
+				}
+				
 				// orderbook
-				double price = mapSymbolPrice.get(symbol).next();
+				price = mapSymbolPrice.get(symbol).next();
 				Orderbook orderbook = new Orderbook();
 				orderbook.addAsk(price + 1, 999);
 				orderbook.addBid(price - 1, 999);
 				updateOrderbook(symbol, orderbook);
-				
-				// fill
-				Map<String, Order> mapSymbolOrders = mapOrders.get(symbol);
-				if(mapSymbolOrders == null) return;
-				List<String> lstRemoveOrderId = new ArrayList<>();
-				for(String orderId : mapSymbolOrders.keySet()) {
-					Order order = mapSymbolOrders.get(orderId);
-					BuySell buySell = order.getBuySell();
-					switch (buySell) {
-					case BUY:
-						if(order.getPrice() >= price + 1) {
-							Fill fill = toFill(order, orderId, symbol);
-							lstRemoveOrderId.add(orderId);
-							String strategyName = mapOrderIdToStrategy.get(orderId);
-							addFill(strategyName, fill);
-						}
-						break;
-					case SELL:
-						if(order.getPrice() <= price - 1) {
-							Fill fill = toFill(order, orderId, symbol);
-							lstRemoveOrderId.add(orderId);
-							String strategyName = mapOrderIdToStrategy.get(orderId);
-							addFill(strategyName, fill);
-						}
-						break;
-					}
-				}
-				// remove
-				for(String orderId : lstRemoveOrderId) {
-					mapSymbolOrders.remove(orderId);
-				}
 			}
 		}
 		

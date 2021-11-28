@@ -215,6 +215,7 @@ public class GridStrategy extends AbstractStrategy {
 //		checkFillRest();
 		
 		Orderbook orderbook = exchangeManager.getOrderbook(tradingExchange, symbol);
+		if (orderbook == null) return;
 		log.info("Current price : {}, {}", orderbook.getBidTopPrice(1)[0], orderbook.getAskTopPrice(1)[0]);
 
 		// 策略剛啟動鋪單

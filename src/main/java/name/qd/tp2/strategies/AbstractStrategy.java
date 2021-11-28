@@ -88,6 +88,8 @@ public abstract class AbstractStrategy implements Strategy {
 		
 		String uuid = UUID.randomUUID().toString();
 		mapTrailingOrder.put(uuid, trailingOrder);
+		
+		log.info("Put trailing order {} {}", price, uuid);
 		return uuid;
 	}
 	
@@ -183,12 +185,16 @@ public abstract class AbstractStrategy implements Strategy {
 					if(marketSellPrice <= trailingOrder.getPrice()) {
 						trailingOrder.setTrailingStatus(TrailingOrder.TRAILING_STATUS_TRIIGERED);
 						trailingOrder.setEdgePrice(marketSellPrice);
+						
+						log.info("Trailing order triggered. {} {}", trailingOrder.getPrice(), uuid);
 					}
 				} else {
 					double marketBuyPrice = orderbook.getBidTopPrice(1)[0];
 					if(marketBuyPrice >= trailingOrder.getPrice()) {
 						trailingOrder.setTrailingStatus(TrailingOrder.TRAILING_STATUS_TRIIGERED);
 						trailingOrder.setEdgePrice(marketBuyPrice);
+						
+						log.info("Trailing order triggered. {} {}", trailingOrder.getPrice(), uuid);
 					}
 				}
 			} else if(trailingOrder.getTrailingStatus() == TrailingOrder.TRAILING_STATUS_TRIIGERED) {
@@ -204,10 +210,14 @@ public abstract class AbstractStrategy implements Strategy {
 						
 						// 市場賣單已經高於下單價格
 						if(marketSellPrice > trailingOrder.getPrice()) {
-							sendLimitOrder(uuid, trailingOrder);
+							sendTrailingLimitOrder(uuid, trailingOrder);
+							
+							log.info("pull back and send {} {}", trailingOrder.getPrice(), uuid);
 						} else if(marketSellPrice >= edgePrice + strategyConfig.getTrailingValue()) {
 							trailingOrder.setPrice(marketSellPrice);
-							sendLimitOrder(uuid, trailingOrder);
+							sendTrailingLimitOrder(uuid, trailingOrder);
+							
+							log.info("pull back and send {} {}", trailingOrder.getPrice(), uuid);
 						}
 					}
 				} else {
@@ -217,10 +227,14 @@ public abstract class AbstractStrategy implements Strategy {
 						trailingOrder.setEdgePrice(marketBuyPrice);
 					} else {
 						if(marketBuyPrice < trailingOrder.getPrice()) {
-							sendLimitOrder(uuid, trailingOrder);
+							sendTrailingLimitOrder(uuid, trailingOrder);
+							
+							log.info("pull back and send {} {}", trailingOrder.getPrice(), uuid);
 						} else if(marketBuyPrice <= edgePrice - strategyConfig.getTrailingValue()) {
 							trailingOrder.setPrice(marketBuyPrice);
-							sendLimitOrder(uuid, trailingOrder);
+							sendTrailingLimitOrder(uuid, trailingOrder);
+							
+							log.info("pull back and send {} {}", trailingOrder.getPrice(), uuid);
 						}
 					}
 				}
@@ -228,8 +242,8 @@ public abstract class AbstractStrategy implements Strategy {
 		}
 	}
 	
-	private void sendLimitOrder(String uuid, TrailingOrder trailingOrder) {
-		String orderId = sendLimitOrder(trailingOrder.getExchange(), trailingOrder.getUserName(), trailingOrder.getSymbol(), trailingOrder.getBuySell(), trailingOrder.getPrice(), trailingOrder.getQty(), BigDecimal.ZERO);
+	private void sendTrailingLimitOrder(String uuid, TrailingOrder trailingOrder) {
+		String orderId = exchangeManager.sendLimitOrder(strategyName, trailingOrder.getExchange(), trailingOrder.getUserName(), trailingOrder.getSymbol(), trailingOrder.getBuySell(), trailingOrder.getPrice(), trailingOrder.getQty());
 		if(orderId == null) {
 			log.error("Send order failed.");
 			return;
@@ -247,6 +261,8 @@ public abstract class AbstractStrategy implements Strategy {
 				if(mapTrailingOrderId.containsKey(fill.getOrderId())) {
 					String trailingOrderId = mapTrailingOrderId.get(fill.getOrderId());
 					fill.setOrderId(trailingOrderId);
+					
+					log.info("trailing order fill {} {}", fill.getFillPrice(), trailingOrderId);
 				}
 			}
 			
