@@ -86,6 +86,7 @@ public class GridStrategy extends AbstractStrategy {
 	private BigDecimal stopProfit;
 	private BigDecimal tickSize;
 	private int orderLevel;
+	private String orderType;
 	private String lineNotify;
 	private String googleDriveFolderId;
 	private String googleCredentialsPath;
@@ -112,6 +113,7 @@ public class GridStrategy extends AbstractStrategy {
 		stopProfit = new BigDecimal(strategyConfig.getCustomizeSettings("stopProfit"));
 		tickSize = new BigDecimal(strategyConfig.getCustomizeSettings("tickSize"));
 		orderLevel = Integer.parseInt(strategyConfig.getCustomizeSettings("orderLevel"));
+		orderType = strategyConfig.getCustomizeSettings("orderType");
 		tradingExchange = strategyConfig.getCustomizeSettings("tradingExchange");
 		lineNotify = strategyConfig.getCustomizeSettings("lineNotify");
 		googleDriveFolderId = strategyConfig.getCustomizeSettings("googleDriveFolderId");
@@ -193,7 +195,8 @@ public class GridStrategy extends AbstractStrategy {
 					qty -= remainPosition;
 					remainPosition = 0;
 					
-					String orderId = sendTrailingOrder(tradingExchange, userName, symbol, BuySell.BUY, basePrice, qty, tickSize);
+//					String orderId = sendTrailingOrder(tradingExchange, userName, symbol, BuySell.BUY, basePrice, qty, tickSize);
+					String orderId = sendOrder(BuySell.BUY, basePrice, qty);
 					if (orderId != null) {
 						log.info("鋪單 {} {} {} {}", i, basePrice, qty, orderId);
 						setOrderId.add(orderId);
@@ -376,7 +379,8 @@ public class GridStrategy extends AbstractStrategy {
 			basePrice = basePrice - (priceRange.intValue() * Math.pow(2, i));
 			double qty = firstContractSize * Math.pow(2, i);
 			if (i == startLevel) {
-				String orderId = sendTrailingOrder(tradingExchange, userName, symbol, BuySell.BUY, basePrice, qty, tickSize);
+//				String orderId = sendTrailingOrder(tradingExchange, userName, symbol, BuySell.BUY, basePrice, qty, tickSize);
+				String orderId = sendOrder(BuySell.BUY, basePrice, qty);
 				if (orderId != null) {
 					log.info("鋪單 {} {} {} {}", i, basePrice, qty, orderId);
 					setOrderId.add(orderId);
@@ -390,7 +394,8 @@ public class GridStrategy extends AbstractStrategy {
 	}
 
 	private void placeStopProfitOrder() {
-		String orderId = sendTrailingOrder(tradingExchange, userName, symbol, BuySell.SELL, targetPrice.doubleValue(), grid1StrategyStatus.getPosition(), tickSize);
+//		String orderId = sendTrailingOrder(tradingExchange, userName, symbol, BuySell.SELL, targetPrice.doubleValue(), grid1StrategyStatus.getPosition(), tickSize);
+		String orderId = sendOrder(BuySell.SELL, targetPrice.doubleValue(), grid1StrategyStatus.getPosition());
 		if (orderId != null) {
 			stopProfitOrderId = orderId;
 			log.info("下停利單 {} {} {}", targetPrice, grid1StrategyStatus.getPosition(), orderId);
@@ -400,10 +405,13 @@ public class GridStrategy extends AbstractStrategy {
 		}
 	}
 
-//	private String sendOrder(BuySell buySell, double price, double qty) {
-//		BigDecimal bigDecimal = PriceUtils.trimPriceWithTicksize(BigDecimal.valueOf(price), tickSize, RoundingMode.UP);
-//		return exchangeManager.sendOrder(strategyName, tradingExchange, userName, symbol, buySell, bigDecimal.doubleValue(), qty);
-//	}
+	private String sendOrder(BuySell buySell, double price, double qty) {
+		if("TRAILING".equals(orderType)) {
+			return sendTrailingOrder(tradingExchange, userName, symbol, buySell, price, qty, tickSize);
+		} else {
+			return sendLimitOrder(tradingExchange, userName, symbol, buySell, price, qty, tickSize);
+		}
+	}
 
 	private boolean sendCancelOrder(String orderId) {
 		if (orderId == null) {
