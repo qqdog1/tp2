@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 import name.qd.tp2.constants.BuySell;
 import name.qd.tp2.exchanges.BTSE.BTSEFuturesExchange;
 import name.qd.tp2.exchanges.Fake.FakeExchange;
+import name.qd.tp2.exchanges.MAX.MAXExchange;
 import name.qd.tp2.exchanges.vo.ApiKeySecret;
 import name.qd.tp2.exchanges.vo.Fill;
 import name.qd.tp2.exchanges.vo.Orderbook;
@@ -19,6 +20,7 @@ public class ExchangeManager {
 	
 	public static final String BTSE_EXCHANGE = "BTSE";
 	public static final String FAKE_EXCHANGE = "Fake";
+	public static final String MAX_EXCHANGE = "MAX";
 	
 	private Map<String, Exchange> mapExchange = new HashMap<>();
 	
@@ -41,6 +43,9 @@ public class ExchangeManager {
 												customize[1]));
 			} else if(FAKE_EXCHANGE.equals(exchange)) {
 				mapExchange.put(FAKE_EXCHANGE, new FakeExchange("", ""));
+			} else if(MAX_EXCHANGE.equals(exchange)) {
+				mapExchange.put(MAX_EXCHANGE, new MAXExchange(ExchangeSettings.getExchangeRestUrlByEnv(exchange, customize[0]),
+															 ExchangeSettings.getExchangeWSUrlByEnv(exchange, customize[0])));
 			} else {
 				log.error("exchange not implement yet, {}", exchange);
 			}

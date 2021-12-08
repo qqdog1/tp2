@@ -106,10 +106,6 @@ public class GiGStrategy extends AbstractStrategy {
 		
 		lineNotifyUtils = new LineNotifyUtils(lineNotify);
 
-		ZonedDateTime zonedDateTime = ZonedDateTime.now();
-		from = zonedDateTime.toEpochSecond() * 1000;
-		to = zonedDateTime.toEpochSecond() * 1000;
-
 		fileCacheManager = new FileCacheManager("./gig");
 
 		initAndRestoreCache();
