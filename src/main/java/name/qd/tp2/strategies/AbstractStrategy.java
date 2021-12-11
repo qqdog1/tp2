@@ -15,8 +15,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import name.qd.tp2.constants.BuySell;
+import name.qd.tp2.constants.Constants;
+import name.qd.tp2.constants.TrailingStatus;
 import name.qd.tp2.exchanges.ExchangeManager;
 import name.qd.tp2.exchanges.vo.Fill;
+import name.qd.tp2.exchanges.vo.MarketInfo;
 import name.qd.tp2.exchanges.vo.Orderbook;
 import name.qd.tp2.exchanges.vo.TrailingOrder;
 import name.qd.tp2.strategies.config.StrategyConfig;
@@ -58,7 +61,7 @@ public abstract class AbstractStrategy implements Strategy {
 		}
 		
 		// TODO 這兩個subscribe完 exchange才算真的ready
-		subscribeAllSymbol();
+		subscribeSymbols();
 		setUserInfo();
 		
 		isStrategyReady = true;
@@ -167,13 +170,24 @@ public abstract class AbstractStrategy implements Strategy {
 		return exchanges.size() == readyCount;
 	}
 	
-	private void subscribeAllSymbol() {
+	private void subscribeSymbols() {
 		Set<String> exchanges = strategyConfig.getAllExchange();
 		for(String exchange : exchanges) {
 			Set<String> symbols = strategyConfig.getAllSymbols(exchange);
 			for(String symbol : symbols) {
-				exchangeManager.subscribe(exchange, symbol);
+				if(Constants.ALL_SYMBOLS.equals(symbol)) {
+					subscribeAllSymbols(exchange);
+				} else {
+					exchangeManager.subscribe(exchange, symbol);
+				}
 			}
+		}
+	}
+	
+	private void subscribeAllSymbols(String exchange) {
+		List<MarketInfo> lst = exchangeManager.getMarkets(exchange);
+		for(MarketInfo marketInfo : lst) {
+			exchangeManager.subscribe(exchange, marketInfo.getSymbol());
 		}
 	}
 	
@@ -183,14 +197,14 @@ public abstract class AbstractStrategy implements Strategy {
 			Orderbook orderbook = exchangeManager.getOrderbook(trailingOrder.getExchange(), trailingOrder.getSymbol());
 			BuySell buySell = trailingOrder.getBuySell();
 			
-			if(trailingOrder.getTrailingStatus() == TrailingOrder.TRAILING_STATUS_NONE) {
+			if(trailingOrder.getTrailingStatus() == TrailingStatus.TRAILING_STATUS_NONE) {
 				double pullbackTolerance = strategyConfig.getPullbackTolerance();
 				// 等待過界
 				if(buySell == BuySell.BUY) {
 					// 買單低於
 					double marketSellPrice = orderbook.getAskTopPrice(1)[0];
 					if(marketSellPrice <= trailingOrder.getPrice() - pullbackTolerance) {
-						trailingOrder.setTrailingStatus(TrailingOrder.TRAILING_STATUS_TRIIGERED);
+						trailingOrder.setTrailingStatus(TrailingStatus.TRAILING_STATUS_TRIIGERED);
 						trailingOrder.setEdgePrice(marketSellPrice);
 						
 						log.info("Trailing order triggered. {} {}", trailingOrder.getPrice(), uuid);
@@ -198,13 +212,13 @@ public abstract class AbstractStrategy implements Strategy {
 				} else {
 					double marketBuyPrice = orderbook.getBidTopPrice(1)[0];
 					if(marketBuyPrice >= trailingOrder.getPrice() + pullbackTolerance) {
-						trailingOrder.setTrailingStatus(TrailingOrder.TRAILING_STATUS_TRIIGERED);
+						trailingOrder.setTrailingStatus(TrailingStatus.TRAILING_STATUS_TRIIGERED);
 						trailingOrder.setEdgePrice(marketBuyPrice);
 						
 						log.info("Trailing order triggered. {} {}", trailingOrder.getPrice(), uuid);
 					}
 				}
-			} else if(trailingOrder.getTrailingStatus() == TrailingOrder.TRAILING_STATUS_TRIIGERED) {
+			} else if(trailingOrder.getTrailingStatus() == TrailingStatus.TRAILING_STATUS_TRIIGERED) {
 				// 算最新邊境價格 或是已經 pull back
 				double edgePrice = trailingOrder.getEdgePrice();
 				if(buySell == BuySell.BUY) {
@@ -256,7 +270,7 @@ public abstract class AbstractStrategy implements Strategy {
 			return;
 		}
 		
-		trailingOrder.setTrailingStatus(TrailingOrder.TRAILING_STATUS_SENDED);
+		trailingOrder.setTrailingStatus(TrailingStatus.TRAILING_STATUS_SENDED);
 		mapTrailingOrderId.put(orderId, uuid);
 	}
 	

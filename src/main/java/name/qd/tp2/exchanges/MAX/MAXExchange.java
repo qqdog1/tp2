@@ -1,6 +1,9 @@
 package name.qd.tp2.exchanges.MAX;
 
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -9,13 +12,17 @@ import java.util.concurrent.Executors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import name.qd.tp2.constants.BuySell;
 import name.qd.tp2.exchanges.AbstractExchange;
 import name.qd.tp2.exchanges.ChannelMessageHandler;
+import name.qd.tp2.exchanges.vo.MarketInfo;
 import name.qd.tp2.utils.JsonUtils;
+import okhttp3.HttpUrl;
+import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.WebSocket;
 import okhttp3.WebSocketListener;
@@ -81,6 +88,33 @@ public class MAXExchange extends AbstractExchange {
 	@Override
 	public Map<String, Double> getBalance(String userName) {
 		return null;
+	}
+	
+	@Override
+	public List<MarketInfo> getMarkets() {
+		HttpUrl.Builder urlBuilder = httpUrl.newBuilder();
+		urlBuilder.addPathSegments("markets");
+		
+		Request.Builder requestBuilder = new Request.Builder().url(urlBuilder.build().url().toString());
+		
+		List<MarketInfo> lst = new ArrayList<>();
+		try {
+			String responseString = sendRequest(requestBuilder.build());
+			
+			JsonNode node = JsonUtils.objectMapper.readTree(responseString);
+			
+			for(JsonNode marketNode : node) {
+				MarketInfo marketInfo = new MarketInfo();
+				marketInfo.setSymbol(marketNode.get("id").asText());
+				marketInfo.setBase(marketNode.get("base_unit").asText());
+				marketInfo.setQuote(marketNode.get("quote_unit").asText());
+				lst.add(marketInfo);
+			}
+		} catch (IOException e) {
+			log.error("get MAX supported market failed", e);
+		}
+		
+		return lst;
 	}
 
 	@Override

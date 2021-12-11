@@ -480,8 +480,8 @@ public class GridStrategy extends AbstractStrategy {
 		prop.setProperty("log4j.configurationFile", "./config/log4j2.xml");
 
 		try {
-			String configPath = "./config/test.json";
-//			String configPath = "./config/grid.json";
+//			String configPath = "./config/test.json";
+			String configPath = "./config/grid.json";
 			GridStrategy strategy = new GridStrategy(new JsonStrategyConfig(configPath));
 			strategy.start();
 		} catch (Exception e) {

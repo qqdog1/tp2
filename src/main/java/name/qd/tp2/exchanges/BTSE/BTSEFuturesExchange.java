@@ -33,6 +33,7 @@ import name.qd.tp2.exchanges.AbstractExchange;
 import name.qd.tp2.exchanges.ChannelMessageHandler;
 import name.qd.tp2.exchanges.vo.ApiKeySecret;
 import name.qd.tp2.exchanges.vo.Fill;
+import name.qd.tp2.exchanges.vo.MarketInfo;
 import name.qd.tp2.exchanges.vo.Orderbook;
 import name.qd.tp2.utils.JsonUtils;
 import okhttp3.HttpUrl;
@@ -357,6 +358,12 @@ public class BTSEFuturesExchange extends AbstractExchange {
 	@Override
 	public String getBalance(String userName, String symbol) {
 
+		return null;
+	}
+	
+	@Override
+	public List<MarketInfo> getMarkets() {
+		// TODO 目前不需要
 		return null;
 	}
 

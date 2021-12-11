@@ -1,6 +1,7 @@
 package name.qd.tp2.exchanges.Fake;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -18,6 +19,7 @@ import org.slf4j.LoggerFactory;
 import name.qd.tp2.constants.BuySell;
 import name.qd.tp2.exchanges.AbstractExchange;
 import name.qd.tp2.exchanges.vo.Fill;
+import name.qd.tp2.exchanges.vo.MarketInfo;
 import name.qd.tp2.exchanges.vo.Order;
 import name.qd.tp2.exchanges.vo.Orderbook;
 
@@ -102,6 +104,11 @@ public class FakeExchange extends AbstractExchange {
 	@Override
 	public String getBalance(String userName, String symbol) {
 		return null;
+	}
+	
+	@Override
+	public List<MarketInfo> getMarkets() {
+		return Collections.emptyList();
 	}
 	
 	// 假交易所核心
