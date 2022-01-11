@@ -215,8 +215,8 @@ public class GridStrategy extends AbstractStrategy {
 //		checkFillRest();
 		
 		Orderbook orderbook = exchangeManager.getOrderbook(tradingExchange, symbol);
-		if (orderbook == null) return;
-		log.info("Current price : {}, {}", orderbook.getBidTopPrice(1)[0], orderbook.getAskTopPrice(1)[0]);
+//		if (orderbook == null) return;
+//		log.info("Current price : {}, {}", orderbook.getBidTopPrice(1)[0], orderbook.getAskTopPrice(1)[0]);
 
 		// 策略剛啟動鋪單
 		if (setOrderId.size() == 0) {
@@ -472,8 +472,8 @@ public class GridStrategy extends AbstractStrategy {
 		prop.setProperty("log4j.configurationFile", "./config/log4j2.xml");
 
 		try {
-			String configPath = "./config/test.json";
-//			String configPath = "./config/grid.json";
+//			String configPath = "./config/test.json";
+			String configPath = "./config/grid.json";
 			GridStrategy strategy = new GridStrategy(new JsonStrategyConfig(configPath));
 			strategy.start();
 		} catch (Exception e) {
