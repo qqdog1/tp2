@@ -75,7 +75,6 @@ public class BTSEFuturesExchange extends AbstractExchange {
 		
 		executor.execute(channelMessageHandler);
 		scheduledExecutorService.scheduleAtFixedRate(new UnknownFillRunner(), 0, 1, TimeUnit.SECONDS);
-		scheduledExecutorService.scheduleAtFixedRate(new QueryFillRunner(), 60, 60, TimeUnit.SECONDS);
 		this.fillChannel = fillChannel;
 		if (webSocket == null)
 			initWebSocket(webSocketListener);
@@ -532,14 +531,6 @@ public class BTSEFuturesExchange extends AbstractExchange {
 		}
 	}
 	
-	// 此交易所websocket非常不穩 用rest補斷線的交易
-	private class QueryFillRunner implements Runnable {
-		@Override
-		public void run() {
-			
-		}
-	}
-
 	private class BTSEChannelMessageHandler extends ChannelMessageHandler {
 		@Override
 		public void processMessage(String text) {
