@@ -26,6 +26,7 @@
 	"stopProfit": 20,
   	"tickSize": 0.05,
   	"orderLevel": 4,
+  	"orderType": "TRAILING",
   	"tradingExchange": "Fake",
   	"lineNotify": "",
 	"googleDriveFolderId": "",

@@ -6,6 +6,7 @@ import java.util.Map;
 import name.qd.tp2.constants.BuySell;
 import name.qd.tp2.exchanges.vo.ApiKeySecret;
 import name.qd.tp2.exchanges.vo.Fill;
+import name.qd.tp2.exchanges.vo.MarketInfo;
 import name.qd.tp2.exchanges.vo.Orderbook;
 
 public interface Exchange {
@@ -24,4 +25,6 @@ public interface Exchange {
 	
 	public Map<String, Double> getBalance(String userName);
 	public String getBalance(String userName, String symbol);
+	
+	public List<MarketInfo> getMarkets();
 }
